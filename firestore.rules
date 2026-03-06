@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ---- Admins ----
+    // Only admins can read; no one can write via client
+    match /admins/{uid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---- Users (profile + following subcollection) ----
+    match /users/{uid} {
+      // Users can only read/write their own profile
+      allow read, write: if isOwner(uid);
+
+      match /following/{trackId} {
+        // Users can only read/write their own follows
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---- Tracks ----
+    match /tracks/{trackId} {
+      // Any authenticated user can read approved tracks
+      allow read: if isAuthenticated() &&
+        (resource.data.status == "approved" || isAdmin() || resource.data.createdBy == request.auth.uid);
+
+      // Any authenticated user can create a track (always submitted as pending)
+      allow create: if isAuthenticated() &&
+        request.resource.data.status == "pending" &&
+        request.resource.data.createdBy == request.auth.uid;
+
+      // Only admin can update (approve/reject); track owner cannot self-approve
+      allow update: if isAdmin();
+
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+
+    // ---- Races ----
+    match /races/{raceId} {
+      // Any authenticated user can read races
+      allow read: if isAuthenticated();
+
+      // Only the track owner can create a race for their track
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        get(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.createdBy == request.auth.uid;
+
+      // Only the race creator (track owner) can update/delete
+      allow update, delete: if isAuthenticated() &&
+        resource.data.createdBy == request.auth.uid;
+
+      // ---- Registrations ----
+      match /registrations/{userId} {
+        // Any authenticated user can read registrations
+        allow read: if isAuthenticated();
+
+        // Users can only write their own registration
+        allow write: if isOwner(userId);
+      }
+    }
+
+  }
+}
