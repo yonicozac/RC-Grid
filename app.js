@@ -54,7 +54,7 @@ const createEventBtn = document.getElementById("createEventBtn");
 /* ---------------- Email Link Config ---------------- */
 
 const actionCodeSettings = {
-  url: window.location.origin,
+  url: "https://yonicozac.github.io/RC-Grid/",
   handleCodeInApp: true
 };
 
