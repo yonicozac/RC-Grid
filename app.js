@@ -233,7 +233,7 @@ function renderTrackList(searchTerm = "") {
   });
 
   if (filtered.length === 0) {
-    tracksContainer.innerHTML = "<p>No tracks found.</p>";
+    tracksContainer.innerHTML = '<div class="empty-state"><p>No tracks found.</p></div>';
     return;
   }
   filtered.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
@@ -277,24 +277,29 @@ function buildTrackCard(trackDoc) {
 
   // Follow / Unfollow
   const followBtn = document.createElement("button");
+  followBtn.className = followedTrackIds.has(id) ? "btn-ghost btn-sm" : "btn-primary btn-sm";
   followBtn.innerText = isFollowing ? "Unfollow" : "Follow";
   followBtn.onclick = async () => {
     if (followedTrackIds.has(id)) {
       await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
       followedTrackIds.delete(id);
+      followBtn.innerText = "Follow";
+      followBtn.className = "btn-primary btn-sm";
     } else {
       await setDoc(doc(db, "users", currentUser.uid, "following", id), {
         followedAt: serverTimestamp()
       });
       followedTrackIds.add(id);
+      followBtn.innerText = "Unfollow";
+      followBtn.className = "btn-ghost btn-sm";
     }
-    followBtn.innerText = followedTrackIds.has(id) ? "Unfollow" : "Follow";
   };
   btnRow.appendChild(followBtn);
 
   // Owner: manage races toggle
   if (isOwner) {
     const manageBtn = document.createElement("button");
+    manageBtn.className = "btn-ghost btn-sm";
     manageBtn.innerText = "Manage Races";
 
     const racePanel = document.createElement("div");
@@ -334,6 +339,7 @@ function buildPendingCard(trackDoc) {
   btnRow.className = "btn-row";
 
   const approveBtn = document.createElement("button");
+  approveBtn.className = "btn-primary btn-sm";
   approveBtn.innerText = "Approve";
   approveBtn.onclick = async () => {
     await updateDoc(doc(db, "tracks", id), { status: "approved" });
@@ -341,6 +347,7 @@ function buildPendingCard(trackDoc) {
   };
 
   const rejectBtn = document.createElement("button");
+  rejectBtn.className = "btn-danger btn-sm";
   rejectBtn.innerText = "Reject";
   rejectBtn.onclick = async () => {
     if (!confirm(`Reject and delete track "${t.name}"?`)) return;
@@ -457,12 +464,14 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   addCategoryRow(); // start with one
 
   const addCatBtn = document.createElement("button");
+  addCatBtn.className = "btn-ghost btn-sm";
   addCatBtn.innerText = "+ Add Category";
   addCatBtn.onclick = addCategoryRow;
   container.appendChild(addCatBtn);
   container.appendChild(document.createElement("br"));
 
   const createRaceBtn = document.createElement("button");
+  createRaceBtn.className = "btn-primary btn-sm";
   createRaceBtn.innerText = "Create Race";
   createRaceBtn.onclick = async () => {
     const name = nameInput.value.trim();
@@ -527,7 +536,7 @@ async function loadRacesView() {
   racesContainer.innerHTML = "";
 
   if (followedTrackIds.size === 0) {
-    racesContainer.innerHTML = "<p>Follow some tracks to see their races here.</p>";
+    racesContainer.innerHTML = '<div class="empty-state"><p>Follow some tracks to see their races here.</p></div>';
     return;
   }
 
@@ -537,7 +546,7 @@ async function loadRacesView() {
   );
 
   if (snap.empty) {
-    racesContainer.innerHTML = "<p>No races scheduled for your followed tracks.</p>";
+    racesContainer.innerHTML = '<div class="empty-state"><p>No races scheduled for your followed tracks yet.</p></div>';
     return;
   }
 
@@ -569,8 +578,12 @@ function buildRaceCard(race, myReg) {
   const div = document.createElement("div");
   div.className = "card";
 
+  const distTag = race._distance != null && race._distance !== Infinity
+    ? `<span class="distance-tag">${race._distance < 1 ? "<1" : Math.round(race._distance)} km away</span>`
+    : "";
+
   div.innerHTML = `
-    <h3>${esc(race.name)}</h3>
+    <h3>${esc(race.name)}${distTag}</h3>
     <div class="meta">
       ${esc(race.trackName)} · ${esc(race.date)}
       ${race.totalCapacity ? ` · Max ${race.totalCapacity} racers` : ""}
@@ -578,11 +591,13 @@ function buildRaceCard(race, myReg) {
   `;
 
   if (myReg) {
-    const regInfo = document.createElement("p");
-    regInfo.innerHTML = `<b>Registered:</b> ${myReg.categories.map(esc).join(", ")}`;
+    const regInfo = document.createElement("div");
+    regInfo.className = "reg-badge";
+    regInfo.innerHTML = `✓ Registered: ${myReg.categories.map(esc).join(", ")}`;
     div.appendChild(regInfo);
 
     const unregBtn = document.createElement("button");
+    unregBtn.className = "btn-ghost btn-sm";
     unregBtn.innerText = "Unregister";
     unregBtn.onclick = async () => {
       if (!confirm("Unregister from this race?")) return;
@@ -611,6 +626,7 @@ function buildRaceCard(race, myReg) {
     });
 
     const regBtn = document.createElement("button");
+    regBtn.className = "btn-primary btn-sm";
     regBtn.innerText = "Register";
     regBtn.onclick = async () => {
       const selected = [...formDiv.querySelectorAll("input[type=checkbox]:checked")]

@@ -1,169 +1,555 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RC Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  font-family: Arial;
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 0 16px;
+:root {
+  --accent: #e85d04;
+  --accent-dark: #c44d00;
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f0f3;
+  --border: #e0e0e5;
+  --text: #111118;
+  --text-muted: #6b6b7b;
+  --pending-bg: #fff8ee;
+  --pending-border: #f59e0b;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.12);
 }
 
-.hidden { display: none; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.hidden { display: none !important; }
+
+/* ---- Top bar ---- */
+#topbar {
+  background: #111118;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  height: 58px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+#topbar .logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#topbar .logo span {
+  color: var(--accent);
+}
 
 nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 12px;
+  gap: 4px;
+  margin-left: 32px;
+  flex: 1;
 }
 
 nav button {
-  padding: 8px 18px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
-nav button.active {
-  font-weight: bold;
-  border-bottom: 2px solid #333;
+nav button:hover { color: #fff; background: rgba(255,255,255,0.08); }
+nav button.active { color: #fff; background: rgba(255,255,255,0.12); }
+
+#logoutBtn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #aaa;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#logoutBtn:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+/* ---- Page wrapper ---- */
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
 }
 
-#logoutBtn { margin-left: auto; }
+/* ---- Auth / Name setup ---- */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111118;
+}
 
+.auth-card {
+  background: #1c1c26;
+  border: 1px solid #2a2a38;
+  border-radius: var(--radius);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-md);
+}
+
+.auth-card .logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 28px;
+}
+
+.auth-card .logo span { color: var(--accent); }
+
+.auth-card h3 {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.auth-card p {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+/* ---- Inputs ---- */
+input[type="text"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+input[type="date"],
+textarea,
+select {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  margin: 4px 0;
+}
+
+input:focus, textarea:focus { border-color: var(--accent); }
+
+.auth-card input[type="email"],
+.auth-card input[type="text"] {
+  background: #252530;
+  border-color: #333340;
+  color: #fff;
+}
+
+.auth-card input::placeholder { color: #555; }
+.auth-card input:focus { border-color: var(--accent); }
+
+textarea { resize: vertical; }
+
+/* ---- Buttons ---- */
+button {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 20px;
+}
+.btn-primary:hover { background: var(--accent-dark); }
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px 20px;
+  border: 1.5px solid var(--border);
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-ghost {
+  background: none;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+
+.btn-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 14px;
+}
+.btn-danger:hover { background: #fecaca; }
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
+/* Auth buttons inherit full width */
+.auth-card button {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  padding: 11px;
+  font-size: 0.95rem;
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+}
+.auth-card button:hover { background: var(--accent-dark); }
+
+/* ---- Cards ---- */
 .card {
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s;
 }
+
+.card:hover { box-shadow: var(--shadow-md); }
 
 .card.pending {
-  border-color: #f90;
-  background: #fff8e1;
+  border-color: var(--pending-border);
+  background: var(--pending-bg);
+}
+
+.card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .meta {
-  color: #666;
-  font-size: 0.9em;
-  margin: 4px 0 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
 }
 
-.race-panel {
-  border-top: 1px solid #eee;
+.meta a { color: var(--accent); text-decoration: none; }
+.meta a:hover { text-decoration: underline; }
+
+.card p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 12px; }
+
+/* ---- Btn row ---- */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 12px;
-  padding-top: 12px;
 }
 
+/* ---- Section header ---- */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* ---- Search ---- */
+.search-wrap {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-wrap input {
+  padding-left: 36px;
+  background: var(--surface);
+}
+
+.search-wrap::before {
+  content: "⌕";
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+/* ---- Admin panel ---- */
+#adminPendingPanel {
+  background: var(--pending-bg);
+  border: 1.5px solid var(--pending-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+#adminPendingPanel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #92400e;
+}
+
+/* ---- Create track form ---- */
+#createTrackForm {
+  margin-bottom: 20px;
+}
+
+#createTrackForm h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+/* ---- Race panel ---- */
+.race-panel {
+  border-top: 1.5px solid var(--border);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.race-panel h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 16px 0 10px;
+  color: var(--text);
+}
+
+.race-panel h4:first-child { margin-top: 0; }
+
+/* ---- Category rows ---- */
 .cat-row {
   display: flex;
   gap: 8px;
   margin-bottom: 6px;
+  align-items: center;
 }
 
 .cat-row input[type="text"] { flex: 2; }
 .cat-row input[type="number"] { flex: 1; }
 
-input, button, textarea, select {
-  padding: 6px 8px;
-  margin: 4px 0;
+.cat-row button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
+.cat-row button:hover { color: #b91c1c; }
 
-textarea { width: 100%; }
-
-#adminPendingPanel {
-  border: 2px solid #f90;
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 24px;
-}
-
-.btn-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
+/* ---- Labels / checkboxes ---- */
 label {
   display: flex;
   align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  margin: 6px 0;
+  cursor: pointer;
+}
+
+label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ---- Follow badge ---- */
+.badge-following {
+  display: inline-block;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* ---- Race card distance ---- */
+.distance-tag {
+  display: inline-block;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 99px;
+  margin-left: 6px;
+}
+
+/* ---- Registered tag ---- */
+.reg-badge {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  margin: 4px 0;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+/* ---- Status message ---- */
+.status-msg {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state p { font-size: 0.95rem; }
+
+/* ---- Responsive ---- */
+@media (max-width: 600px) {
+  .page { padding: 20px 14px 48px; }
+  .auth-card { padding: 28px 20px; }
+  #topbar { padding: 0 14px; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 </style>
 
 </head>
 <body>
 
-<h1>RC Grid</h1>
-
 <!-- Auth Area -->
-<div id="authArea">
-  <h3>Login</h3>
-  <p>Enter your email to receive a login link.</p>
-  <input id="emailInput" type="email" placeholder="email@example.com"><br>
-  <button id="sendLinkBtn">Send Login Link</button>
-  <p id="loginStatus"></p>
+<div id="authArea" class="auth-wrap">
+  <div class="auth-card">
+    <div class="logo">RC<span>Grid</span></div>
+    <h3>Sign in</h3>
+    <p>Enter your email and we'll send you a magic link.</p>
+    <input id="emailInput" type="email" placeholder="you@example.com">
+    <button id="sendLinkBtn">Send Login Link</button>
+    <p class="status-msg" id="loginStatus"></p>
+  </div>
 </div>
 
 <!-- Name Setup Area -->
-<div id="nameSetupArea" class="hidden">
-  <h3>Welcome to RC Grid</h3>
-  <p>Please enter your name before continuing.</p>
-  <input id="nameInput" type="text" placeholder="Your name"><br>
-  <button id="saveNameBtn">Continue</button>
-  <p id="nameSetupStatus"></p>
+<div id="nameSetupArea" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div class="logo">RC<span>Grid</span></div>
+    <h3>Welcome!</h3>
+    <p>What should we call you?</p>
+    <input id="nameInput" type="text" placeholder="Your name">
+    <button id="saveNameBtn">Continue</button>
+    <p class="status-msg" id="nameSetupStatus"></p>
+  </div>
 </div>
 
 <!-- App Area -->
 <div id="appArea" class="hidden">
 
-  <nav>
-    <button id="navRaces">Races</button>
-    <button id="navTracks">Tracks</button>
+  <div id="topbar">
+    <div class="logo">RC<span>Grid</span></div>
+    <nav>
+      <button id="navRaces">Races</button>
+      <button id="navTracks">Tracks</button>
+    </nav>
     <button id="logoutBtn">Logout</button>
-  </nav>
+  </div>
 
-  <!-- Tracks View -->
-  <div id="tracksView" class="hidden">
+  <div class="page">
 
-    <div id="adminPendingPanel" class="hidden">
-      <h3>Pending Track Approvals</h3>
-      <div id="pendingContainer"></div>
-    </div>
+    <!-- Tracks View -->
+    <div id="tracksView" class="hidden">
 
-    <button id="showCreateTrackBtn">+ New Track</button>
-
-    <div id="createTrackForm" class="card hidden">
-      <h3>Submit New Track</h3>
-      <input id="newTrackName" type="text" placeholder="Track name"><br>
-      <input id="newTrackLocation" type="text" placeholder="Location"><br>
-      <input id="newTrackWebsite" type="url" placeholder="Website (optional)"><br>
-      <textarea id="newTrackDescription" placeholder="Description (optional)" rows="3"></textarea><br>
-      <div class="btn-row">
-        <button id="submitCreateTrackBtn">Submit for Approval</button>
-        <button id="cancelCreateTrackBtn">Cancel</button>
+      <div id="adminPendingPanel" class="hidden">
+        <h3>Pending Track Approvals</h3>
+        <div id="pendingContainer"></div>
       </div>
+
+      <div class="section-header">
+        <h2>Tracks</h2>
+        <button id="showCreateTrackBtn" class="btn-primary">+ New Track</button>
+      </div>
+
+      <div id="createTrackForm" class="card hidden">
+        <h3>Submit New Track</h3>
+        <input id="newTrackName" type="text" placeholder="Track name">
+        <input id="newTrackLocation" type="text" placeholder="Location">
+        <input id="newTrackWebsite" type="url" placeholder="Website (optional)">
+        <textarea id="newTrackDescription" placeholder="Description (optional)" rows="3"></textarea>
+        <div class="btn-row">
+          <button id="submitCreateTrackBtn" class="btn-primary">Submit for Approval</button>
+          <button id="cancelCreateTrackBtn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <input id="trackSearch" type="text" placeholder="Search tracks by name, location…">
+      </div>
+
+      <div id="tracksContainer"></div>
+
     </div>
 
-    <h2>Tracks</h2>
-    <input id="trackSearch" type="text" placeholder="Search tracks..." style="width:100%;margin-bottom:12px;">
-    <div id="tracksContainer"></div>
+    <!-- Races View -->
+    <div id="racesView" class="hidden">
+      <div class="section-header">
+        <h2>Upcoming Races</h2>
+      </div>
+      <div id="racesContainer"></div>
+    </div>
 
   </div>
-
-  <!-- Races View -->
-  <div id="racesView" class="hidden">
-    <h2>Upcoming Races</h2>
-    <div id="racesContainer"></div>
-  </div>
-
 </div>
 
 <script type="module" src="app.js"></script>
