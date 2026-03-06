@@ -1,188 +1,242 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
 import {
   getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  onAuthStateChanged
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
+  isSignInWithEmailLink,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 import {
   getFirestore,
   collection,
-  doc,
-  setDoc,
-  addDoc,
   getDocs,
+  addDoc,
+  setDoc,
+  doc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-/* ------------------ CONFIG ------------------ */
+/* ---------------- Firebase Config ---------------- */
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID"
+  apiKey: "AIzaSyA_GV9AePORn27qXFV38lHibNPGWklVlF0",
+  authDomain: "rc-grid-faae7.firebaseapp.com",
+  projectId: "rc-grid-faae7"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* ------------------ UI ELEMENTS ------------------ */
+await setPersistence(auth, browserLocalPersistence);
 
-const loginBtn = document.getElementById("loginBtn");
+/* ---------------- UI ---------------- */
+
+const loginForm = document.getElementById("loginForm");
+const emailInput = document.getElementById("emailInput");
+const sendLinkBtn = document.getElementById("sendLinkBtn");
+const loginStatus = document.getElementById("loginStatus");
+
+const authArea = document.getElementById("authArea");
+const appArea = document.getElementById("appArea");
+
 const logoutBtn = document.getElementById("logoutBtn");
 const adminPanel = document.getElementById("adminPanel");
-const createEventBtn = document.getElementById("createEventBtn");
+
 const eventsContainer = document.getElementById("eventsContainer");
+const createEventBtn = document.getElementById("createEventBtn");
 
-/* ------------------ AUTH ------------------ */
+/* ---------------- Email Link Config ---------------- */
 
-loginBtn.onclick = async () => {
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
+const actionCodeSettings = {
+  url: window.location.origin,
+  handleCodeInApp: true
 };
+
+/* ---------------- Send Login Link ---------------- */
+
+sendLinkBtn.onclick = async () => {
+
+  const email = emailInput.value;
+
+  if (!email) {
+    alert("Enter email");
+    return;
+  }
+
+  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+
+  localStorage.setItem("emailForSignIn", email);
+
+  loginStatus.innerText =
+    "Login link sent. Check your email.";
+};
+
+/* ---------------- Complete Login ---------------- */
+
+if (isSignInWithEmailLink(auth, window.location.href)) {
+
+  let email = localStorage.getItem("emailForSignIn");
+
+  if (!email) {
+    email = prompt("Confirm your email");
+  }
+
+  await signInWithEmailLink(auth, email, window.location.href);
+
+  localStorage.removeItem("emailForSignIn");
+}
+
+/* ---------------- Auth State ---------------- */
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (!user) {
+
+    authArea.classList.remove("hidden");
+    appArea.classList.add("hidden");
+
+    return;
+  }
+
+  authArea.classList.add("hidden");
+  appArea.classList.remove("hidden");
+
+  await checkAdmin(user.uid);
+  loadEvents();
+});
+
+/* ---------------- Logout ---------------- */
 
 logoutBtn.onclick = async () => {
   await signOut(auth);
 };
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    loginBtn.classList.add("hidden");
-    logoutBtn.classList.remove("hidden");
-
-    await checkAdmin(user.uid);
-    loadEvents();
-  } else {
-    loginBtn.classList.remove("hidden");
-    logoutBtn.classList.add("hidden");
-    adminPanel.classList.add("hidden");
-    eventsContainer.innerHTML = "";
-  }
-});
-
-/* ------------------ ADMIN CHECK ------------------ */
+/* ---------------- Admin Check ---------------- */
 
 async function checkAdmin(uid) {
-  const adminDoc = await getDocs(collection(db, "admins"));
+
+  const admins = await getDocs(collection(db,"admins"));
+
   let isAdmin = false;
 
-  adminDoc.forEach(doc => {
-    if (doc.id === uid) isAdmin = true;
+  admins.forEach(doc=>{
+    if(doc.id === uid) isAdmin = true;
   });
 
-  if (isAdmin) {
+  if(isAdmin){
     adminPanel.classList.remove("hidden");
-  } else {
-    adminPanel.classList.add("hidden");
   }
 }
 
-/* ------------------ CREATE EVENT ------------------ */
+/* ---------------- Create Event ---------------- */
 
 createEventBtn.onclick = async () => {
+
   const name = document.getElementById("eventName").value;
   const date = document.getElementById("eventDate").value;
-  const categoriesInput = document.getElementById("eventCategories").value;
 
-  if (!name || !date || !categoriesInput) {
-    alert("Fill all fields");
-    return;
-  }
-
-  const categories = categoriesInput
+  const cats = document
+    .getElementById("eventCategories")
+    .value
     .split(",")
-    .map(c => c.trim())
-    .filter(c => c.length > 0);
+    .map(c=>c.trim())
+    .filter(c=>c.length>0);
 
-  await addDoc(collection(db, "events"), {
+  await addDoc(collection(db,"events"),{
+
     name,
     date,
-    categories,
-    createdAt: serverTimestamp(),
-    createdBy: auth.currentUser.uid
+    categories:cats,
+    createdAt:serverTimestamp(),
+    createdBy:auth.currentUser.uid
+
   });
 
-  alert("Event created!");
   loadEvents();
 };
 
-/* ------------------ LOAD EVENTS ------------------ */
+/* ---------------- Load Events ---------------- */
 
-async function loadEvents() {
+async function loadEvents(){
+
   eventsContainer.innerHTML = "";
 
-  const snapshot = await getDocs(collection(db, "events"));
+  const snapshot = await getDocs(collection(db,"events"));
 
-  snapshot.forEach(eventDoc => {
-    const event = eventDoc.data();
+  snapshot.forEach(eventDoc=>{
+
+    const e = eventDoc.data();
     const eventId = eventDoc.id;
 
     const div = document.createElement("div");
-    div.className = "event";
+    div.className="event";
 
     const title = document.createElement("h3");
-    title.textContent = `${event.name} (${event.date})`;
+    title.innerText = `${e.name} (${e.date})`;
+
     div.appendChild(title);
 
-    // Category buttons
-    event.categories.forEach(category => {
+    e.categories.forEach(cat=>{
+
       const btn = document.createElement("button");
-      btn.textContent = `Register: ${category}`;
-      btn.onclick = () => registerToEvent(eventId, category);
+      btn.innerText = `Register: ${cat}`;
+
+      btn.onclick = ()=>register(eventId,cat);
+
       div.appendChild(btn);
     });
 
-    // Participants list
-    const participantsDiv = document.createElement("div");
-    participantsDiv.textContent = "Loading participants...";
-    div.appendChild(participantsDiv);
+    const participants = document.createElement("div");
+    participants.innerHTML = "<b>Participants</b><br>";
 
-    loadParticipants(eventId, participantsDiv);
+    div.appendChild(participants);
+
+    loadParticipants(eventId,participants);
 
     eventsContainer.appendChild(div);
   });
 }
 
-/* ------------------ REGISTER ------------------ */
+/* ---------------- Register ---------------- */
 
-async function registerToEvent(eventId, category) {
+async function register(eventId,category){
+
   const user = auth.currentUser;
-  if (!user) {
-    alert("Login first");
-    return;
-  }
 
   await setDoc(
-    doc(db, "registrations", eventId, user.uid),
+    doc(db,"registrations",eventId,user.uid),
     {
-      uid: user.uid,
-      displayName: user.displayName || "Anonymous",
+      uid:user.uid,
+      email:user.email,
       category,
-      registeredAt: serverTimestamp()
+      registeredAt:serverTimestamp()
     }
   );
 
-  alert("Registered!");
   loadEvents();
 }
 
-/* ------------------ LOAD PARTICIPANTS ------------------ */
+/* ---------------- Participants ---------------- */
 
-async function loadParticipants(eventId, container) {
-  container.innerHTML = "<strong>Participants:</strong><br>";
+async function loadParticipants(eventId,container){
 
-  const snapshot = await getDocs(collection(db, "registrations", eventId));
+  const snap = await getDocs(collection(db,"registrations",eventId));
 
-  if (snapshot.empty) {
-    container.innerHTML += "No participants yet.";
+  if(snap.empty){
+    container.innerHTML += "No participants yet";
     return;
   }
 
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    container.innerHTML += `${data.displayName} (${data.category})<br>`;
+  snap.forEach(doc=>{
+
+    const d = doc.data();
+
+    container.innerHTML += `${d.email} (${d.category})<br>`;
   });
 }

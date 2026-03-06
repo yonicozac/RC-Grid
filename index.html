@@ -1,34 +1,78 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Event Signup App</title>
-  <style>
-    body { font-family: Arial; max-width: 900px; margin: 40px auto; }
-    .event { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; }
-    .admin-panel { border: 2px solid #444; padding: 15px; margin-bottom: 30px; }
-    button { margin: 5px 0; }
-    .hidden { display: none; }
-  </style>
+<meta charset="UTF-8">
+<title>Event Signup</title>
+
+<style>
+body {
+  font-family: Arial;
+  max-width: 900px;
+  margin: 40px auto;
+}
+
+.hidden {
+  display:none;
+}
+
+.event {
+  border:1px solid #ccc;
+  padding:15px;
+  margin-bottom:20px;
+}
+
+.admin-panel {
+  border:2px solid #333;
+  padding:15px;
+  margin-bottom:30px;
+}
+
+input,button {
+  margin:6px 0;
+}
+</style>
+
 </head>
+
 <body>
 
 <h1>Event Signup</h1>
 
-<button id="loginBtn">Login</button>
-<button id="logoutBtn" class="hidden">Logout</button>
+<div id="authArea">
 
-<div id="adminPanel" class="admin-panel hidden">
-  <h2>Create Event (Admin)</h2>
-  <input id="eventName" placeholder="Event name"><br>
-  <input id="eventDate" type="date"><br>
-  <input id="eventCategories" placeholder="Categories (comma separated)"><br>
-  <button id="createEventBtn">Create Event</button>
+  <div id="loginForm">
+    <h3>Login</h3>
+    <p>Enter your email to receive a login link.</p>
+
+    <input id="emailInput" type="email" placeholder="email@example.com">
+    <br>
+    <button id="sendLinkBtn">Send Login Link</button>
+
+    <p id="loginStatus"></p>
+  </div>
+
 </div>
 
-<h2>Available Events</h2>
-<div id="eventsContainer"></div>
+<div id="appArea" class="hidden">
+
+  <button id="logoutBtn">Logout</button>
+
+  <div id="adminPanel" class="admin-panel hidden">
+    <h2>Create Event (Admin)</h2>
+
+    <input id="eventName" placeholder="Event name"><br>
+    <input id="eventDate" type="date"><br>
+    <input id="eventCategories" placeholder="Categories (comma separated)"><br>
+
+    <button id="createEventBtn">Create Event</button>
+  </div>
+
+  <h2>Available Events</h2>
+  <div id="eventsContainer"></div>
+
+</div>
 
 <script type="module" src="app.js"></script>
+
 </body>
 </html>
