@@ -19,6 +19,10 @@ import {
   setDoc,
   getDoc,
   doc,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -36,259 +40,542 @@ const db = getFirestore(app);
 
 await setPersistence(auth, browserLocalPersistence);
 
-/* ---------------- UI ---------------- */
+/* ---------------- State ---------------- */
 
-const loginForm = document.getElementById("loginForm");
+let currentUser = null;
+let currentUserName = null;
+let isAdmin = false;
+let followedTrackIds = new Set();
+
+/* ---------------- UI Refs ---------------- */
+
+const authArea = document.getElementById("authArea");
+const nameSetupArea = document.getElementById("nameSetupArea");
+const appArea = document.getElementById("appArea");
 const emailInput = document.getElementById("emailInput");
 const sendLinkBtn = document.getElementById("sendLinkBtn");
 const loginStatus = document.getElementById("loginStatus");
-
-const authArea = document.getElementById("authArea");
-const appArea = document.getElementById("appArea");
-
 const logoutBtn = document.getElementById("logoutBtn");
-const adminPanel = document.getElementById("adminPanel");
+const navTracks = document.getElementById("navTracks");
+const navRaces = document.getElementById("navRaces");
+const tracksView = document.getElementById("tracksView");
+const racesView = document.getElementById("racesView");
+const tracksContainer = document.getElementById("tracksContainer");
+const racesContainer = document.getElementById("racesContainer");
+const adminPendingPanel = document.getElementById("adminPendingPanel");
+const pendingContainer = document.getElementById("pendingContainer");
+const createTrackForm = document.getElementById("createTrackForm");
 
-const eventsContainer = document.getElementById("eventsContainer");
-const createEventBtn = document.getElementById("createEventBtn");
-
-/* ---------------- Email Link Config ---------------- */
+/* ---------------- Auth ---------------- */
 
 const actionCodeSettings = {
   url: "https://yonicozac.github.io/RC-Grid/",
   handleCodeInApp: true
 };
 
-/* ---------------- Send Login Link ---------------- */
-
 sendLinkBtn.onclick = async () => {
-
-  const email = emailInput.value;
-
-  if (!email) {
-    alert("Enter email");
-    return;
-  }
-
+  const email = emailInput.value.trim();
+  if (!email) { alert("Enter your email"); return; }
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-
   localStorage.setItem("emailForSignIn", email);
-
-  loginStatus.innerText =
-    "Login link sent. Check your email.";
+  loginStatus.innerText = "Login link sent. Check your email.";
 };
 
-/* ---------------- Complete Login ---------------- */
-
 if (isSignInWithEmailLink(auth, window.location.href)) {
-
   let email = localStorage.getItem("emailForSignIn");
-
-  if (!email) {
-    email = prompt("Confirm your email");
-  }
-
+  if (!email) email = prompt("Confirm your email");
   await signInWithEmailLink(auth, email, window.location.href);
-
   localStorage.removeItem("emailForSignIn");
 }
 
-/* ---------------- Auth State ---------------- */
-
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
-
     authArea.classList.remove("hidden");
+    nameSetupArea.classList.add("hidden");
     appArea.classList.add("hidden");
-
+    currentUser = null;
+    currentUserName = null;
     return;
   }
 
+  currentUser = user;
   authArea.classList.add("hidden");
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  currentUserName = userDoc.exists() ? userDoc.data().name : null;
+
+  if (!currentUserName) {
+    nameSetupArea.classList.remove("hidden");
+    appArea.classList.add("hidden");
+    return;
+  }
+
+  nameSetupArea.classList.add("hidden");
   appArea.classList.remove("hidden");
 
-  await checkAdmin(user.uid);
-  loadEvents();
+  const adminDoc = await getDoc(doc(db, "admins", user.uid));
+  isAdmin = adminDoc.exists();
+
+  await loadFollowedTracks();
+  showView("tracks");
 });
 
-/* ---------------- Logout ---------------- */
+logoutBtn.onclick = () => signOut(auth);
 
-logoutBtn.onclick = async () => {
-  await signOut(auth);
+/* ---------------- Name Setup ---------------- */
+
+document.getElementById("saveNameBtn").onclick = async () => {
+  const name = document.getElementById("nameInput").value.trim();
+  if (!name) { alert("Please enter your name"); return; }
+
+  await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
+  currentUserName = name;
+
+  nameSetupArea.classList.add("hidden");
+  appArea.classList.remove("hidden");
+
+  const adminDoc = await getDoc(doc(db, "admins", currentUser.uid));
+  isAdmin = adminDoc.exists();
+
+  await loadFollowedTracks();
+  showView("tracks");
 };
 
-/* ---------------- Admin Check ---------------- */
+/* ---------------- Navigation ---------------- */
 
-async function checkAdmin(uid) {
+navTracks.onclick = () => showView("tracks");
+navRaces.onclick = () => showView("races");
 
-  const adminDoc = await getDoc(doc(db,"admins",uid));
-
-  if(adminDoc.exists()){
-    adminPanel.classList.remove("hidden");
+function showView(view) {
+  if (view === "tracks") {
+    tracksView.classList.remove("hidden");
+    racesView.classList.add("hidden");
+    navTracks.classList.add("active");
+    navRaces.classList.remove("active");
+    loadTracksView();
+  } else {
+    racesView.classList.remove("hidden");
+    tracksView.classList.add("hidden");
+    navRaces.classList.add("active");
+    navTracks.classList.remove("active");
+    loadRacesView();
   }
 }
 
-/* ---------------- Create Event ---------------- */
+/* ---------------- Helpers ---------------- */
 
-createEventBtn.onclick = async () => {
-
-  const name = document.getElementById("eventName").value;
-  const date = document.getElementById("eventDate").value;
-
-  const cats = document
-    .getElementById("eventCategories")
-    .value
-    .split(",")
-    .map(c=>c.trim())
-    .filter(c=>c.length>0);
-
-  await addDoc(collection(db,"events"),{
-
-    name,
-    date,
-    categories:cats,
-    createdAt:serverTimestamp(),
-    createdBy:auth.currentUser.uid
-
-  });
-
-  loadEvents();
-};
-
-/* ---------------- Load Events ---------------- */
-
-async function loadEvents(){
-
-  eventsContainer.innerHTML = "";
-
-  const snapshot = await getDocs(collection(db,"events"));
-
-  snapshot.forEach(async eventDoc=>{
-
-    const e = eventDoc.data();
-    const eventId = eventDoc.id;
-
-    const div = document.createElement("div");
-    div.className="event";
-
-    const title = document.createElement("h3");
-    title.innerText = `${e.name} (${e.date})`;
-
-    div.appendChild(title);
-
-    const userReg = await getDoc(
-      doc(db,"registrations",eventId,auth.currentUser.uid)
-    );
-
-    let myCategory = null;
-
-    if(userReg.exists()){
-      myCategory = userReg.data().category;
-
-      const myReg = document.createElement("div");
-      myReg.innerHTML = `<b>Your registration:</b> ${myCategory}`;
-      div.appendChild(myReg);
-    }
-
-    /* ---------- Category Buttons ---------- */
-
-    const btnContainer = document.createElement("div");
-
-    e.categories.forEach(cat=>{
-
-      const btn = document.createElement("button");
-
-      btn.innerText = `Register: ${cat}`;
-
-      if(myCategory){
-        btn.disabled = true;
-      }
-
-      btn.onclick = ()=>register(eventId,cat);
-
-      btnContainer.appendChild(btn);
-    });
-
-    div.appendChild(btnContainer);
-
-    /* ---------- Participants ---------- */
-
-    const participants = document.createElement("div");
-    participants.innerHTML = "<b>Participants</b><br>";
-
-    div.appendChild(participants);
-
-    await loadParticipants(eventId,participants,e.categories);
-
-    eventsContainer.appendChild(div);
-  });
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str ?? "";
+  return d.innerHTML;
 }
 
-/* ---------------- Register ---------------- */
-
-async function register(eventId,category){
-
-  const user = auth.currentUser;
-
-  await setDoc(
-    doc(db,"registrations",eventId,user.uid),
-    {
-      uid:user.uid,
-      email:user.email,
-      category,
-      registeredAt:serverTimestamp()
-    }
-  );
-
-  loadEvents();
+function safeHref(url) {
+  if (!url) return null;
+  return url.startsWith("http://") || url.startsWith("https://") ? url : null;
 }
 
-/* ---------------- Participants ---------------- */
+/* ---------------- Follow State ---------------- */
 
-async function loadParticipants(eventId,container,categories){
+async function loadFollowedTracks() {
+  followedTrackIds.clear();
+  const snap = await getDocs(collection(db, "users", currentUser.uid, "following"));
+  snap.forEach(d => followedTrackIds.add(d.id));
+}
 
-  const snap = await getDocs(collection(db,"registrations",eventId));
+/* ---------------- Tracks View ---------------- */
 
-  if(snap.empty){
-    container.innerHTML += "No participants yet";
+async function loadTracksView() {
+  tracksContainer.innerHTML = "";
+
+  if (isAdmin) {
+    adminPendingPanel.classList.remove("hidden");
+    await loadPendingTracks();
+  }
+
+  const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "approved")));
+
+  if (snap.empty) {
+    tracksContainer.innerHTML = "<p>No tracks yet.</p>";
     return;
   }
 
-  const grouped = {};
+  snap.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
+}
 
-  categories.forEach(c=>{
-    grouped[c] = [];
-  });
+async function loadPendingTracks() {
+  pendingContainer.innerHTML = "";
+  const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "pending")));
 
-  snap.forEach(doc=>{
-
-    const d = doc.data();
-
-    if(!grouped[d.category]){
-      grouped[d.category] = [];
-    }
-
-    grouped[d.category].push(d.email);
-  });
-
-  for(const cat of categories){
-
-    const list = grouped[cat];
-
-    const section = document.createElement("div");
-
-    section.innerHTML = `<br><b>${cat}</b><br>`;
-
-    if(!list || list.length === 0){
-      section.innerHTML += "No participants<br>";
-    } else {
-
-      list.forEach(email=>{
-        section.innerHTML += `${email}<br>`;
-      });
-    }
-
-    container.appendChild(section);
+  if (snap.empty) {
+    pendingContainer.innerHTML = "<p>No pending tracks.</p>";
+    return;
   }
+
+  snap.forEach(d => pendingContainer.appendChild(buildPendingCard(d)));
+}
+
+function buildTrackCard(trackDoc) {
+  const t = trackDoc.data();
+  const id = trackDoc.id;
+  const isOwner = t.createdBy === currentUser.uid;
+  const isFollowing = followedTrackIds.has(id);
+  const href = safeHref(t.website);
+
+  const div = document.createElement("div");
+  div.className = "card";
+
+  div.innerHTML = `
+    <h3>${esc(t.name)}</h3>
+    <div class="meta">
+      ${esc(t.location)}
+      ${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener">Website</a>` : ""}
+    </div>
+    ${t.description ? `<p>${esc(t.description)}</p>` : ""}
+  `;
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "btn-row";
+
+  // Follow / Unfollow
+  const followBtn = document.createElement("button");
+  followBtn.innerText = isFollowing ? "Unfollow" : "Follow";
+  followBtn.onclick = async () => {
+    if (followedTrackIds.has(id)) {
+      await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
+      followedTrackIds.delete(id);
+    } else {
+      await setDoc(doc(db, "users", currentUser.uid, "following", id), {
+        followedAt: serverTimestamp()
+      });
+      followedTrackIds.add(id);
+    }
+    followBtn.innerText = followedTrackIds.has(id) ? "Unfollow" : "Follow";
+  };
+  btnRow.appendChild(followBtn);
+
+  // Owner: manage races toggle
+  if (isOwner) {
+    const manageBtn = document.createElement("button");
+    manageBtn.innerText = "Manage Races";
+
+    const racePanel = document.createElement("div");
+    racePanel.className = "race-panel hidden";
+
+    manageBtn.onclick = async () => {
+      if (racePanel.classList.contains("hidden")) {
+        racePanel.classList.remove("hidden");
+        await buildRacePanel(id, t.name, racePanel);
+      } else {
+        racePanel.classList.add("hidden");
+      }
+    };
+
+    btnRow.appendChild(manageBtn);
+    div.appendChild(btnRow);
+    div.appendChild(racePanel);
+  } else {
+    div.appendChild(btnRow);
+  }
+
+  return div;
+}
+
+function buildPendingCard(trackDoc) {
+  const t = trackDoc.data();
+  const id = trackDoc.id;
+
+  const div = document.createElement("div");
+  div.className = "card pending";
+  div.innerHTML = `
+    <b>${esc(t.name)}</b> · ${esc(t.location)}
+    ${t.description ? `<br><small>${esc(t.description)}</small>` : ""}
+  `;
+
+  const btnRow = document.createElement("div");
+  btnRow.className = "btn-row";
+
+  const approveBtn = document.createElement("button");
+  approveBtn.innerText = "Approve";
+  approveBtn.onclick = async () => {
+    await updateDoc(doc(db, "tracks", id), { status: "approved" });
+    await loadTracksView();
+  };
+
+  const rejectBtn = document.createElement("button");
+  rejectBtn.innerText = "Reject";
+  rejectBtn.onclick = async () => {
+    if (!confirm(`Reject and delete track "${t.name}"?`)) return;
+    await deleteDoc(doc(db, "tracks", id));
+    await loadPendingTracks();
+  };
+
+  btnRow.appendChild(approveBtn);
+  btnRow.appendChild(rejectBtn);
+  div.appendChild(btnRow);
+  return div;
+}
+
+/* ---------------- Create Track ---------------- */
+
+document.getElementById("showCreateTrackBtn").onclick = () => {
+  createTrackForm.classList.toggle("hidden");
+};
+
+document.getElementById("cancelCreateTrackBtn").onclick = () => {
+  createTrackForm.classList.add("hidden");
+};
+
+document.getElementById("submitCreateTrackBtn").onclick = async () => {
+  const name = document.getElementById("newTrackName").value.trim();
+  const location = document.getElementById("newTrackLocation").value.trim();
+  const website = document.getElementById("newTrackWebsite").value.trim();
+  const description = document.getElementById("newTrackDescription").value.trim();
+
+  if (!name || !location) { alert("Name and location are required"); return; }
+
+  await addDoc(collection(db, "tracks"), {
+    name,
+    location,
+    website: website || null,
+    description: description || null,
+    status: "pending",
+    createdBy: currentUser.uid,
+    createdAt: serverTimestamp()
+  });
+
+  alert("Track submitted for approval!");
+  createTrackForm.classList.add("hidden");
+  document.getElementById("newTrackName").value = "";
+  document.getElementById("newTrackLocation").value = "";
+  document.getElementById("newTrackWebsite").value = "";
+  document.getElementById("newTrackDescription").value = "";
+};
+
+/* ---------------- Race Panel (owner) ---------------- */
+
+async function buildRacePanel(trackId, trackName, container) {
+  container.innerHTML = "";
+
+  // --- Create Race Form ---
+  const formTitle = document.createElement("h4");
+  formTitle.innerText = "Create Race";
+  container.appendChild(formTitle);
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "Race name";
+  container.appendChild(nameInput);
+  container.appendChild(document.createElement("br"));
+
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  container.appendChild(dateInput);
+  container.appendChild(document.createElement("br"));
+
+  const totalCapInput = document.createElement("input");
+  totalCapInput.type = "number";
+  totalCapInput.placeholder = "Total capacity (optional)";
+  totalCapInput.min = "1";
+  container.appendChild(totalCapInput);
+  container.appendChild(document.createElement("br"));
+
+  // Categories
+  const catsLabel = document.createElement("p");
+  catsLabel.innerText = "Categories:";
+  container.appendChild(catsLabel);
+
+  const catsDiv = document.createElement("div");
+  container.appendChild(catsDiv);
+
+  function addCategoryRow() {
+    const row = document.createElement("div");
+    row.className = "cat-row";
+
+    const nameIn = document.createElement("input");
+    nameIn.type = "text";
+    nameIn.placeholder = "Category name (e.g. 2WD Buggy)";
+
+    const capIn = document.createElement("input");
+    capIn.type = "number";
+    capIn.placeholder = "Capacity (optional)";
+    capIn.min = "1";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.innerText = "×";
+    removeBtn.onclick = () => row.remove();
+
+    row.appendChild(nameIn);
+    row.appendChild(capIn);
+    row.appendChild(removeBtn);
+    catsDiv.appendChild(row);
+  }
+
+  addCategoryRow(); // start with one
+
+  const addCatBtn = document.createElement("button");
+  addCatBtn.innerText = "+ Add Category";
+  addCatBtn.onclick = addCategoryRow;
+  container.appendChild(addCatBtn);
+  container.appendChild(document.createElement("br"));
+
+  const createRaceBtn = document.createElement("button");
+  createRaceBtn.innerText = "Create Race";
+  createRaceBtn.onclick = async () => {
+    const name = nameInput.value.trim();
+    const date = dateInput.value;
+    const totalCap = totalCapInput.value;
+
+    if (!name || !date) { alert("Name and date are required"); return; }
+
+    const categories = [];
+    catsDiv.querySelectorAll(".cat-row").forEach(row => {
+      const catName = row.querySelector("input[type=text]").value.trim();
+      const cap = row.querySelector("input[type=number]").value;
+      if (catName) {
+        const cat = { name: catName };
+        if (cap) cat.capacity = parseInt(cap);
+        categories.push(cat);
+      }
+    });
+
+    if (categories.length === 0) { alert("Add at least one category"); return; }
+
+    const raceData = {
+      name,
+      date,
+      trackId,
+      trackName,
+      categories,
+      createdBy: currentUser.uid,
+      createdAt: serverTimestamp()
+    };
+    if (totalCap) raceData.totalCapacity = parseInt(totalCap);
+
+    await addDoc(collection(db, "races"), raceData);
+    await buildRacePanel(trackId, trackName, container);
+  };
+  container.appendChild(createRaceBtn);
+
+  // --- Existing Races ---
+  const snap = await getDocs(query(collection(db, "races"), where("trackId", "==", trackId)));
+  if (!snap.empty) {
+    const listTitle = document.createElement("h4");
+    listTitle.innerText = "Existing Races";
+    container.appendChild(listTitle);
+
+    const races = [];
+    snap.forEach(d => races.push({ id: d.id, ...d.data() }));
+    races.sort((a, b) => a.date.localeCompare(b.date));
+
+    races.forEach(r => {
+      const item = document.createElement("div");
+      item.innerHTML = `<b>${esc(r.name)}</b> — ${esc(r.date)}
+        <span class="meta"> · ${r.categories.map(c => esc(c.name)).join(", ")}</span>`;
+      container.appendChild(item);
+    });
+  }
+}
+
+/* ---------------- Races View ---------------- */
+
+async function loadRacesView() {
+  racesContainer.innerHTML = "";
+
+  if (followedTrackIds.size === 0) {
+    racesContainer.innerHTML = "<p>Follow some tracks to see their races here.</p>";
+    return;
+  }
+
+  const trackIds = [...followedTrackIds];
+  const snap = await getDocs(
+    query(collection(db, "races"), where("trackId", "in", trackIds))
+  );
+
+  if (snap.empty) {
+    racesContainer.innerHTML = "<p>No races scheduled for your followed tracks.</p>";
+    return;
+  }
+
+  const races = [];
+  snap.forEach(d => races.push({ id: d.id, ...d.data() }));
+  races.sort((a, b) => a.date.localeCompare(b.date));
+
+  for (const race of races) {
+    const regDoc = await getDoc(
+      doc(db, "races", race.id, "registrations", currentUser.uid)
+    );
+    const myReg = regDoc.exists() ? regDoc.data() : null;
+    racesContainer.appendChild(buildRaceCard(race, myReg));
+  }
+}
+
+function buildRaceCard(race, myReg) {
+  const div = document.createElement("div");
+  div.className = "card";
+
+  div.innerHTML = `
+    <h3>${esc(race.name)}</h3>
+    <div class="meta">
+      ${esc(race.trackName)} · ${esc(race.date)}
+      ${race.totalCapacity ? ` · Max ${race.totalCapacity} racers` : ""}
+    </div>
+  `;
+
+  if (myReg) {
+    const regInfo = document.createElement("p");
+    regInfo.innerHTML = `<b>Registered:</b> ${myReg.categories.map(esc).join(", ")}`;
+    div.appendChild(regInfo);
+
+    const unregBtn = document.createElement("button");
+    unregBtn.innerText = "Unregister";
+    unregBtn.onclick = async () => {
+      if (!confirm("Unregister from this race?")) return;
+      await deleteDoc(doc(db, "races", race.id, "registrations", currentUser.uid));
+      await loadRacesView();
+    };
+    div.appendChild(unregBtn);
+
+  } else {
+    const formDiv = document.createElement("div");
+
+    const label = document.createElement("p");
+    label.innerHTML = "<b>Select categories to register:</b>";
+    formDiv.appendChild(label);
+
+    race.categories.forEach(cat => {
+      const lbl = document.createElement("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = cat.name;
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(
+        ` ${cat.name}${cat.capacity ? ` (max ${cat.capacity})` : ""}`
+      ));
+      formDiv.appendChild(lbl);
+    });
+
+    const regBtn = document.createElement("button");
+    regBtn.innerText = "Register";
+    regBtn.onclick = async () => {
+      const selected = [...formDiv.querySelectorAll("input[type=checkbox]:checked")]
+        .map(cb => cb.value);
+      if (selected.length === 0) { alert("Select at least one category"); return; }
+
+      await setDoc(doc(db, "races", race.id, "registrations", currentUser.uid), {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        name: currentUserName,
+        categories: selected,
+        registeredAt: serverTimestamp()
+      });
+
+      await loadRacesView();
+    };
+
+    formDiv.appendChild(regBtn);
+    div.appendChild(formDiv);
+  }
+
+  return div;
 }

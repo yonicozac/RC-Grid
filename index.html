@@ -2,73 +2,166 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Event Signup</title>
+<title>RC Grid</title>
 
 <style>
+* { box-sizing: border-box; }
+
 body {
   font-family: Arial;
   max-width: 900px;
   margin: 40px auto;
+  padding: 0 16px;
 }
 
-.hidden {
-  display:none;
+.hidden { display: none; }
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 12px;
 }
 
-.event {
-  border:1px solid #ccc;
-  padding:15px;
-  margin-bottom:20px;
+nav button {
+  padding: 8px 18px;
+  cursor: pointer;
 }
 
-.admin-panel {
-  border:2px solid #333;
-  padding:15px;
-  margin-bottom:30px;
+nav button.active {
+  font-weight: bold;
+  border-bottom: 2px solid #333;
 }
 
-input,button {
-  margin:6px 0;
+#logoutBtn { margin-left: auto; }
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card.pending {
+  border-color: #f90;
+  background: #fff8e1;
+}
+
+.meta {
+  color: #666;
+  font-size: 0.9em;
+  margin: 4px 0 8px;
+}
+
+.race-panel {
+  border-top: 1px solid #eee;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.cat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cat-row input[type="text"] { flex: 2; }
+.cat-row input[type="number"] { flex: 1; }
+
+input, button, textarea, select {
+  padding: 6px 8px;
+  margin: 4px 0;
+}
+
+textarea { width: 100%; }
+
+#adminPendingPanel {
+  border: 2px solid #f90;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
 }
 </style>
 
 </head>
-
 <body>
 
-<h1>Event Signup</h1>
+<h1>RC Grid</h1>
 
+<!-- Auth Area -->
 <div id="authArea">
-
-  <div id="loginForm">
-    <h3>Login</h3>
-    <p>Enter your email to receive a login link.</p>
-
-    <input id="emailInput" type="email" placeholder="email@example.com">
-    <br>
-    <button id="sendLinkBtn">Send Login Link</button>
-
-    <p id="loginStatus"></p>
-  </div>
-
+  <h3>Login</h3>
+  <p>Enter your email to receive a login link.</p>
+  <input id="emailInput" type="email" placeholder="email@example.com"><br>
+  <button id="sendLinkBtn">Send Login Link</button>
+  <p id="loginStatus"></p>
 </div>
 
+<!-- Name Setup Area -->
+<div id="nameSetupArea" class="hidden">
+  <h3>Welcome to RC Grid</h3>
+  <p>Please enter your name before continuing.</p>
+  <input id="nameInput" type="text" placeholder="Your name"><br>
+  <button id="saveNameBtn">Continue</button>
+  <p id="nameSetupStatus"></p>
+</div>
+
+<!-- App Area -->
 <div id="appArea" class="hidden">
 
-  <button id="logoutBtn">Logout</button>
+  <nav>
+    <button id="navTracks">Tracks</button>
+    <button id="navRaces">Races</button>
+    <button id="logoutBtn">Logout</button>
+  </nav>
 
-  <div id="adminPanel" class="admin-panel hidden">
-    <h2>Create Event (Admin)</h2>
+  <!-- Tracks View -->
+  <div id="tracksView" class="hidden">
 
-    <input id="eventName" placeholder="Event name"><br>
-    <input id="eventDate" type="date"><br>
-    <input id="eventCategories" placeholder="Categories (comma separated)"><br>
+    <div id="adminPendingPanel" class="hidden">
+      <h3>Pending Track Approvals</h3>
+      <div id="pendingContainer"></div>
+    </div>
 
-    <button id="createEventBtn">Create Event</button>
+    <button id="showCreateTrackBtn">+ New Track</button>
+
+    <div id="createTrackForm" class="card hidden">
+      <h3>Submit New Track</h3>
+      <input id="newTrackName" type="text" placeholder="Track name"><br>
+      <input id="newTrackLocation" type="text" placeholder="Location"><br>
+      <input id="newTrackWebsite" type="url" placeholder="Website (optional)"><br>
+      <textarea id="newTrackDescription" placeholder="Description (optional)" rows="3"></textarea><br>
+      <div class="btn-row">
+        <button id="submitCreateTrackBtn">Submit for Approval</button>
+        <button id="cancelCreateTrackBtn">Cancel</button>
+      </div>
+    </div>
+
+    <h2>Tracks</h2>
+    <div id="tracksContainer"></div>
+
   </div>
 
-  <h2>Available Events</h2>
-  <div id="eventsContainer"></div>
+  <!-- Races View -->
+  <div id="racesView" class="hidden">
+    <h2>Upcoming Races</h2>
+    <div id="racesContainer"></div>
+  </div>
 
 </div>
 
