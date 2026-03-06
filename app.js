@@ -46,6 +46,7 @@ let currentUser = null;
 let currentUserName = null;
 let isAdmin = false;
 let followedTrackIds = new Set();
+let cachedTrackDocs = [];
 
 /* ---------------- UI Refs ---------------- */
 
@@ -215,14 +216,30 @@ async function loadTracksView() {
   }
 
   const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "approved")));
+  cachedTrackDocs = [];
+  snap.forEach(d => cachedTrackDocs.push(d));
+  renderTrackList(document.getElementById("trackSearch").value);
+}
 
-  if (snap.empty) {
-    tracksContainer.innerHTML = "<p>No tracks yet.</p>";
+function renderTrackList(searchTerm = "") {
+  tracksContainer.innerHTML = "";
+  const term = searchTerm.toLowerCase().trim();
+  const filtered = cachedTrackDocs.filter(d => {
+    const t = d.data();
+    return !term ||
+      t.name.toLowerCase().includes(term) ||
+      t.location.toLowerCase().includes(term) ||
+      (t.description && t.description.toLowerCase().includes(term));
+  });
+
+  if (filtered.length === 0) {
+    tracksContainer.innerHTML = "<p>No tracks found.</p>";
     return;
   }
-
-  snap.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
+  filtered.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
 }
+
+document.getElementById("trackSearch").oninput = e => renderTrackList(e.target.value);
 
 async function loadPendingTracks() {
   pendingContainer.innerHTML = "";
