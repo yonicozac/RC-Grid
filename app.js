@@ -17,6 +17,7 @@ import {
   getDocs,
   addDoc,
   setDoc,
+  getDoc,
   doc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -121,15 +122,9 @@ logoutBtn.onclick = async () => {
 
 async function checkAdmin(uid) {
 
-  const admins = await getDocs(collection(db,"admins"));
+  const adminDoc = await getDoc(doc(db,"admins",uid));
 
-  let isAdmin = false;
-
-  admins.forEach(doc=>{
-    if(doc.id === uid) isAdmin = true;
-  });
-
-  if(isAdmin){
+  if(adminDoc.exists()){
     adminPanel.classList.remove("hidden");
   }
 }
@@ -169,7 +164,7 @@ async function loadEvents(){
 
   const snapshot = await getDocs(collection(db,"events"));
 
-  snapshot.forEach(eventDoc=>{
+  snapshot.forEach(async eventDoc=>{
 
     const e = eventDoc.data();
     const eventId = eventDoc.id;
@@ -182,22 +177,49 @@ async function loadEvents(){
 
     div.appendChild(title);
 
+    const userReg = await getDoc(
+      doc(db,"registrations",eventId,auth.currentUser.uid)
+    );
+
+    let myCategory = null;
+
+    if(userReg.exists()){
+      myCategory = userReg.data().category;
+
+      const myReg = document.createElement("div");
+      myReg.innerHTML = `<b>Your registration:</b> ${myCategory}`;
+      div.appendChild(myReg);
+    }
+
+    /* ---------- Category Buttons ---------- */
+
+    const btnContainer = document.createElement("div");
+
     e.categories.forEach(cat=>{
 
       const btn = document.createElement("button");
+
       btn.innerText = `Register: ${cat}`;
+
+      if(myCategory){
+        btn.disabled = true;
+      }
 
       btn.onclick = ()=>register(eventId,cat);
 
-      div.appendChild(btn);
+      btnContainer.appendChild(btn);
     });
+
+    div.appendChild(btnContainer);
+
+    /* ---------- Participants ---------- */
 
     const participants = document.createElement("div");
     participants.innerHTML = "<b>Participants</b><br>";
 
     div.appendChild(participants);
 
-    loadParticipants(eventId,participants);
+    await loadParticipants(eventId,participants,e.categories);
 
     eventsContainer.appendChild(div);
   });
@@ -224,7 +246,7 @@ async function register(eventId,category){
 
 /* ---------------- Participants ---------------- */
 
-async function loadParticipants(eventId,container){
+async function loadParticipants(eventId,container,categories){
 
   const snap = await getDocs(collection(db,"registrations",eventId));
 
@@ -233,10 +255,40 @@ async function loadParticipants(eventId,container){
     return;
   }
 
+  const grouped = {};
+
+  categories.forEach(c=>{
+    grouped[c] = [];
+  });
+
   snap.forEach(doc=>{
 
     const d = doc.data();
 
-    container.innerHTML += `${d.email} (${d.category})<br>`;
+    if(!grouped[d.category]){
+      grouped[d.category] = [];
+    }
+
+    grouped[d.category].push(d.email);
   });
+
+  for(const cat of categories){
+
+    const list = grouped[cat];
+
+    const section = document.createElement("div");
+
+    section.innerHTML = `<br><b>${cat}</b><br>`;
+
+    if(!list || list.length === 0){
+      section.innerHTML += "No participants<br>";
+    } else {
+
+      list.forEach(email=>{
+        section.innerHTML += `${email}<br>`;
+      });
+    }
+
+    container.appendChild(section);
+  }
 }
