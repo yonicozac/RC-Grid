@@ -117,7 +117,7 @@ onAuthStateChanged(auth, async (user) => {
   isAdmin = adminDoc.exists();
 
   await loadFollowedTracks();
-  showView("tracks");
+  showView("races");
 });
 
 logoutBtn.onclick = () => signOut(auth);
@@ -138,7 +138,7 @@ document.getElementById("saveNameBtn").onclick = async () => {
   isAdmin = adminDoc.exists();
 
   await loadFollowedTracks();
-  showView("tracks");
+  showView("races");
 };
 
 /* ---------------- Navigation ---------------- */
@@ -173,6 +173,27 @@ function esc(str) {
 function safeHref(url) {
   if (!url) return null;
   return url.startsWith("http://") || url.startsWith("https://") ? url : null;
+}
+
+function getUserLocation() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000 }
+    );
+  });
+}
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /* ---------------- Follow State ---------------- */
@@ -265,7 +286,7 @@ function buildTrackCard(trackDoc) {
     manageBtn.onclick = async () => {
       if (racePanel.classList.contains("hidden")) {
         racePanel.classList.remove("hidden");
-        await buildRacePanel(id, t.name, racePanel);
+        await buildRacePanel(id, t.name, t.lat ?? null, t.lng ?? null, racePanel);
       } else {
         racePanel.classList.add("hidden");
       }
@@ -334,7 +355,9 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
 
   if (!name || !location) { alert("Name and location are required"); return; }
 
-  await addDoc(collection(db, "tracks"), {
+  const coords = await getUserLocation();
+
+  const trackData = {
     name,
     location,
     website: website || null,
@@ -342,7 +365,10 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
     status: "pending",
     createdBy: currentUser.uid,
     createdAt: serverTimestamp()
-  });
+  };
+  if (coords) { trackData.lat = coords.lat; trackData.lng = coords.lng; }
+
+  await addDoc(collection(db, "tracks"), trackData);
 
   alert("Track submitted for approval!");
   createTrackForm.classList.add("hidden");
@@ -354,7 +380,7 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
 
 /* ---------------- Race Panel (owner) ---------------- */
 
-async function buildRacePanel(trackId, trackName, container) {
+async function buildRacePanel(trackId, trackName, trackLat, trackLng, container) {
   container.innerHTML = "";
 
   // --- Create Race Form ---
@@ -451,9 +477,10 @@ async function buildRacePanel(trackId, trackName, container) {
       createdAt: serverTimestamp()
     };
     if (totalCap) raceData.totalCapacity = parseInt(totalCap);
+    if (trackLat != null) { raceData.trackLat = trackLat; raceData.trackLng = trackLng; }
 
     await addDoc(collection(db, "races"), raceData);
-    await buildRacePanel(trackId, trackName, container);
+    await buildRacePanel(trackId, trackName, trackLat, trackLng, container);
   };
   container.appendChild(createRaceBtn);
 
@@ -499,7 +526,18 @@ async function loadRacesView() {
 
   const races = [];
   snap.forEach(d => races.push({ id: d.id, ...d.data() }));
-  races.sort((a, b) => a.date.localeCompare(b.date));
+
+  const userCoords = await getUserLocation();
+  if (userCoords) {
+    races.forEach(r => {
+      r._distance = (r.trackLat != null)
+        ? haversineDistance(userCoords.lat, userCoords.lng, r.trackLat, r.trackLng)
+        : Infinity;
+    });
+    races.sort((a, b) => a._distance - b._distance || a.date.localeCompare(b.date));
+  } else {
+    races.sort((a, b) => a.date.localeCompare(b.date));
+  }
 
   for (const race of races) {
     const regDoc = await getDoc(

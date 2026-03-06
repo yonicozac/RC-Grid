@@ -48,8 +48,8 @@ service cloud.firestore {
       // Only admin can update (approve/reject); track owner cannot self-approve
       allow update: if isAdmin();
 
-      // Only admin can delete
-      allow delete: if isAdmin();
+      // Admin or track owner can delete
+      allow delete: if isAdmin() || resource.data.createdBy == request.auth.uid;
     }
 
     // ---- Races ----
