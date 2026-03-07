@@ -616,42 +616,35 @@ function buildRaceCard(race, myReg) {
   } else {
     const formDiv = document.createElement("div");
 
-    const label = document.createElement("p");
-    label.innerHTML = "<b>Select categories to register:</b>";
-    formDiv.appendChild(label);
-
     race.categories.forEach(cat => {
-      const lbl = document.createElement("label");
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = cat.name;
-      lbl.appendChild(cb);
-      lbl.appendChild(document.createTextNode(
-        ` ${cat.name}${cat.capacity ? ` (max ${cat.capacity})` : ""}`
-      ));
-      formDiv.appendChild(lbl);
+      const row = document.createElement("div");
+      row.className = "btn-row";
+      row.style.alignItems = "center";
+
+      const catName = document.createElement("span");
+      catName.style.flex = "1";
+      catName.style.fontSize = "0.9rem";
+      catName.innerText = cat.name + (cat.capacity ? ` (max ${cat.capacity})` : "");
+
+      const regBtn = document.createElement("button");
+      regBtn.className = "btn-primary btn-sm";
+      regBtn.innerText = "Register";
+      regBtn.onclick = async () => {
+        await setDoc(doc(db, "races", race.id, "registrations", currentUser.uid), {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          name: currentUserName,
+          categories: [cat.name],
+          registeredAt: serverTimestamp()
+        });
+        await loadRacesView();
+      };
+
+      row.appendChild(catName);
+      row.appendChild(regBtn);
+      formDiv.appendChild(row);
     });
 
-    const regBtn = document.createElement("button");
-    regBtn.className = "btn-primary btn-sm";
-    regBtn.innerText = "Register";
-    regBtn.onclick = async () => {
-      const selected = [...formDiv.querySelectorAll("input[type=checkbox]:checked")]
-        .map(cb => cb.value);
-      if (selected.length === 0) { alert("Select at least one category"); return; }
-
-      await setDoc(doc(db, "races", race.id, "registrations", currentUser.uid), {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        name: currentUserName,
-        categories: selected,
-        registeredAt: serverTimestamp()
-      });
-
-      await loadRacesView();
-    };
-
-    formDiv.appendChild(regBtn);
     div.appendChild(formDiv);
   }
 
