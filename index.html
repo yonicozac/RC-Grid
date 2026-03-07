@@ -403,18 +403,30 @@ label input[type="checkbox"] {
   flex-shrink: 0;
 }
 
-/* ---- Follow badge ---- */
-.badge-following {
-  display: inline-block;
-  background: #dcfce7;
-  color: #166534;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 99px;
-  margin-left: 8px;
-  vertical-align: middle;
+/* ---- Card header row ---- */
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
+
+.card-header-text { flex: 1; min-width: 0; }
+
+/* ---- Heart button ---- */
+.heart-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #ccc;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.1s;
+}
+.heart-btn:hover { transform: scale(1.15); }
+.heart-btn.active { color: #e85d04; }
 
 /* ---- Race card distance ---- */
 .distance-tag {
@@ -470,8 +482,13 @@ label input[type="checkbox"] {
 </head>
 <body>
 
+<!-- Loading Area -->
+<div id="loadingArea" class="auth-wrap">
+  <div style="color:#fff;font-size:1rem;opacity:0.5;letter-spacing:0.5px;">Loading…</div>
+</div>
+
 <!-- Auth Area -->
-<div id="authArea" class="auth-wrap">
+<div id="authArea" class="auth-wrap hidden">
   <div class="auth-card">
     <div class="logo">RC<span>Grid</span></div>
     <h3>Sign in</h3>

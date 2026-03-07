@@ -50,6 +50,7 @@ let cachedTrackDocs = [];
 
 /* ---------------- UI Refs ---------------- */
 
+const loadingArea = document.getElementById("loadingArea");
 const authArea = document.getElementById("authArea");
 const nameSetupArea = document.getElementById("nameSetupArea");
 const appArea = document.getElementById("appArea");
@@ -90,6 +91,8 @@ if (isSignInWithEmailLink(auth, window.location.href)) {
 }
 
 onAuthStateChanged(auth, async (user) => {
+  loadingArea.classList.add("hidden");
+
   if (!user) {
     authArea.classList.remove("hidden");
     nameSetupArea.classList.add("hidden");
@@ -263,7 +266,30 @@ function buildTrackCard(trackDoc) {
   const div = document.createElement("div");
   div.className = "card";
 
-  div.innerHTML = `
+  // Heart button
+  const heartBtn = document.createElement("button");
+  heartBtn.className = "heart-btn" + (isFollowing ? " active" : "");
+  heartBtn.innerHTML = "&#9829;";
+  heartBtn.title = isFollowing ? "Unfollow" : "Follow";
+  heartBtn.onclick = async () => {
+    if (followedTrackIds.has(id)) {
+      await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
+      followedTrackIds.delete(id);
+      heartBtn.classList.remove("active");
+      heartBtn.title = "Follow";
+    } else {
+      await setDoc(doc(db, "users", currentUser.uid, "following", id), {
+        followedAt: serverTimestamp()
+      });
+      followedTrackIds.add(id);
+      heartBtn.classList.add("active");
+      heartBtn.title = "Unfollow";
+    }
+  };
+
+  const headerText = document.createElement("div");
+  headerText.className = "card-header-text";
+  headerText.innerHTML = `
     <h3>${esc(t.name)}</h3>
     <div class="meta">
       ${esc(t.location)}
@@ -272,40 +298,25 @@ function buildTrackCard(trackDoc) {
     ${t.description ? `<p>${esc(t.description)}</p>` : ""}
   `;
 
-  const btnRow = document.createElement("div");
-  btnRow.className = "btn-row";
+  const cardHeader = document.createElement("div");
+  cardHeader.className = "card-header";
+  cardHeader.appendChild(headerText);
+  cardHeader.appendChild(heartBtn);
+  div.appendChild(cardHeader);
 
-  // Follow / Unfollow
-  const followBtn = document.createElement("button");
-  followBtn.className = followedTrackIds.has(id) ? "btn-ghost btn-sm" : "btn-primary btn-sm";
-  followBtn.innerText = isFollowing ? "Unfollow" : "Follow";
-  followBtn.onclick = async () => {
-    if (followedTrackIds.has(id)) {
-      await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
-      followedTrackIds.delete(id);
-      followBtn.innerText = "Follow";
-      followBtn.className = "btn-primary btn-sm";
-    } else {
-      await setDoc(doc(db, "users", currentUser.uid, "following", id), {
-        followedAt: serverTimestamp()
-      });
-      followedTrackIds.add(id);
-      followBtn.innerText = "Unfollow";
-      followBtn.className = "btn-ghost btn-sm";
-    }
-  };
-  btnRow.appendChild(followBtn);
-
-  // Owner: manage races toggle
+  // Owner: add race toggle
   if (isOwner) {
-    const manageBtn = document.createElement("button");
-    manageBtn.className = "btn-ghost btn-sm";
-    manageBtn.innerText = "Manage Races";
+    const btnRow = document.createElement("div");
+    btnRow.className = "btn-row";
+
+    const addRaceBtn = document.createElement("button");
+    addRaceBtn.className = "btn-ghost btn-sm";
+    addRaceBtn.innerText = "Add Race";
 
     const racePanel = document.createElement("div");
     racePanel.className = "race-panel hidden";
 
-    manageBtn.onclick = async () => {
+    addRaceBtn.onclick = async () => {
       if (racePanel.classList.contains("hidden")) {
         racePanel.classList.remove("hidden");
         await buildRacePanel(id, t.name, t.lat ?? null, t.lng ?? null, racePanel);
@@ -314,11 +325,9 @@ function buildTrackCard(trackDoc) {
       }
     };
 
-    btnRow.appendChild(manageBtn);
+    btnRow.appendChild(addRaceBtn);
     div.appendChild(btnRow);
     div.appendChild(racePanel);
-  } else {
-    div.appendChild(btnRow);
   }
 
   return div;
