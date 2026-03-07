@@ -215,7 +215,6 @@ async function loadTracksView() {
   tracksContainer.innerHTML = "";
 
   if (isAdmin) {
-    adminPendingPanel.classList.remove("hidden");
     await loadPendingTracks();
   }
 
@@ -261,10 +260,11 @@ async function loadPendingTracks() {
   const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "pending")));
 
   if (snap.empty) {
-    pendingContainer.innerHTML = "<p>No pending tracks.</p>";
+    adminPendingPanel.classList.add("hidden");
     return;
   }
 
+  adminPendingPanel.classList.remove("hidden");
   snap.forEach(d => pendingContainer.appendChild(buildPendingCard(d)));
 }
 
