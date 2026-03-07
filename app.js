@@ -47,6 +47,7 @@ let currentUserName = null;
 let isAdmin = false;
 let followedTrackIds = new Set();
 let cachedTrackDocs = [];
+let tracksViewCoords = null;
 
 /* ---------------- UI Refs ---------------- */
 
@@ -221,6 +222,7 @@ async function loadTracksView() {
   const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "approved")));
   cachedTrackDocs = [];
   snap.forEach(d => cachedTrackDocs.push(d));
+  tracksViewCoords = await getUserLocation();
   renderTrackList(document.getElementById("trackSearch").value);
 }
 
@@ -239,6 +241,16 @@ function renderTrackList(searchTerm = "") {
     tracksContainer.innerHTML = '<div class="empty-state"><p>No tracks found.</p></div>';
     return;
   }
+
+  if (tracksViewCoords) {
+    filtered.sort((a, b) => {
+      const ta = a.data(), tb = b.data();
+      const da = ta.lat != null ? haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, ta.lat, ta.lng) : Infinity;
+      const db_ = tb.lat != null ? haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, tb.lat, tb.lng) : Infinity;
+      return da - db_;
+    });
+  }
+
   filtered.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
 }
 
@@ -562,17 +574,7 @@ async function loadRacesView() {
   const races = [];
   snap.forEach(d => races.push({ id: d.id, ...d.data() }));
 
-  const userCoords = await getUserLocation();
-  if (userCoords) {
-    races.forEach(r => {
-      r._distance = (r.trackLat != null)
-        ? haversineDistance(userCoords.lat, userCoords.lng, r.trackLat, r.trackLng)
-        : Infinity;
-    });
-    races.sort((a, b) => a._distance - b._distance || a.date.localeCompare(b.date));
-  } else {
-    races.sort((a, b) => a.date.localeCompare(b.date));
-  }
+  races.sort((a, b) => a.date.localeCompare(b.date));
 
   for (const race of races) {
     const regDoc = await getDoc(
@@ -587,12 +589,8 @@ function buildRaceCard(race, myReg) {
   const div = document.createElement("div");
   div.className = "card";
 
-  const distTag = race._distance != null && race._distance !== Infinity
-    ? `<span class="distance-tag">${race._distance < 1 ? "<1" : Math.round(race._distance)} km away</span>`
-    : "";
-
   div.innerHTML = `
-    <h3>${esc(race.name)}${distTag}</h3>
+    <h3>${esc(race.name)}</h3>
     <div class="meta">
       ${esc(race.trackName)} · ${esc(race.date)}
       ${race.totalCapacity ? ` · Max ${race.totalCapacity} racers` : ""}
