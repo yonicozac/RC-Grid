@@ -761,22 +761,17 @@ function buildRaceCard(race, regs, myReg) {
     const head = document.createElement("div");
     head.className = "btn-row cat-head";
 
-    const catName = document.createElement("span");
+    const catName = document.createElement("div");
     catName.className = "cat-name";
-    catName.innerText = cat.name;
+    catName.innerHTML = `${esc(cat.name)}<div class="cat-meta">${driverCount(byCategory.get(cat.name).length)}</div>`;
     head.appendChild(catName);
 
     if (myEntry) {
       const tag = document.createElement("span");
       tag.className = "reg-tag";
-      tag.innerText = "✓ Registered" + (myEntry.transponder ? ` · #${myEntry.transponder}` : "");
+      tag.innerText = "✓ Registered";
       head.appendChild(tag);
     }
-
-    const count = document.createElement("span");
-    count.className = "count-pill";
-    count.innerText = driverCount(byCategory.get(cat.name).length);
-    head.appendChild(count);
 
     const actionBtn = document.createElement("button");
     actionBtn.className = myEntry ? "btn-ghost btn-sm" : "btn-primary btn-sm";

@@ -560,7 +560,14 @@ label input[type="checkbox"] {
 
 .cat-name { flex: 1; font-size: 0.88rem; font-weight: 500; }
 
-.count-pill,
+.cat-meta {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .reg-tag {
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -568,12 +575,6 @@ label input[type="checkbox"] {
   padding: 2px 7px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-.count-pill {
-  color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
 }
 
 .reg-tag {
@@ -726,7 +727,6 @@ label input[type="checkbox"] {
   .card { padding: 16px; }
   .section-header h2 { font-size: 1.45rem; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .cat-head .cat-name { flex: 1 0 100%; }
   .cat-head .btn-primary, .cat-head .btn-ghost { margin-left: auto; }
   .reg-form input[type="text"] { flex: 1 0 100%; max-width: none; }
 }
