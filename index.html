@@ -517,24 +517,39 @@ label input[type="checkbox"] {
   margin-left: 6px;
 }
 
-/* ---- Transponder input ---- */
-.field-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-input.transponder-input {
-  max-width: 280px;
-  margin: 6px 0 8px;
-}
-
 /* ---- Race card categories + drivers ---- */
-.cat-line { align-items: center; }
+.cat-line {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.cat-head { align-items: center; margin-top: 0; }
+
+.reg-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--success-text);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.reg-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.reg-form input[type="text"] {
+  flex: 1;
+  min-width: 160px;
+  max-width: 260px;
+  margin: 0;
+}
 
 .cat-name { flex: 1; font-size: 0.9rem; }
 
@@ -589,21 +604,6 @@ input.transponder-input {
   text-transform: uppercase;
   color: var(--accent);
   margin-left: 4px;
-}
-
-/* ---- Registered tag ---- */
-.reg-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--success-bg);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  margin: 0 10px 10px 0;
 }
 
 /* ---- Status message ---- */

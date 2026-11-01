@@ -613,15 +613,40 @@ function driverCount(n) {
   return `${n} driver${n === 1 ? "" : "s"}`;
 }
 
+// Per-category entries; older registrations stored categories[] + one transponder
+function regEntries(reg) {
+  if (!reg) return [];
+  return reg.entries ?? (reg.categories ?? []).map(category => ({ category, transponder: reg.transponder ?? null }));
+}
+
+async function saveMyEntries(race, myReg, entries) {
+  const ref = doc(db, "races", race.id, "registrations", currentUser.uid);
+  if (entries.length === 0) {
+    await deleteDoc(ref);
+  } else if (myReg) {
+    await updateDoc(ref, { entries, name: currentUserName });
+  } else {
+    await setDoc(ref, {
+      uid: currentUser.uid,
+      email: currentUser.email,
+      name: currentUserName,
+      entries,
+      registeredAt: serverTimestamp()
+    });
+  }
+}
+
 function buildRaceCard(race, regs, myReg) {
   const div = document.createElement("div");
   div.className = "card";
 
-  // Group registrations by category, keeping the race's category order
+  const myEntries = regEntries(myReg);
+
+  // Group entries by category, keeping the race's category order
   const byCategory = new Map(race.categories.map(c => [c.name, []]));
-  regs.forEach(r => (r.categories ?? []).forEach(name => {
-    if (!byCategory.has(name)) byCategory.set(name, []);
-    byCategory.get(name).push(r);
+  regs.forEach(r => regEntries(r).forEach(e => {
+    if (!byCategory.has(e.category)) byCategory.set(e.category, []);
+    byCategory.get(e.category).push({ uid: r.uid, name: r.name, transponder: e.transponder });
   }));
 
   div.innerHTML = `
@@ -631,70 +656,83 @@ function buildRaceCard(race, regs, myReg) {
     </div>
   `;
 
-  let transponderInput = null;
-
-  if (myReg) {
-    const regInfo = document.createElement("div");
-    regInfo.className = "reg-badge";
-    regInfo.innerHTML = `✓ Registered: ${myReg.categories.map(esc).join(", ")}` +
-      (myReg.transponder ? ` · Transponder ${esc(myReg.transponder)}` : "");
-    div.appendChild(regInfo);
-
-    const unregBtn = document.createElement("button");
-    unregBtn.className = "btn-ghost btn-sm";
-    unregBtn.innerText = "Unregister";
-    unregBtn.onclick = async () => {
-      if (!confirm("Unregister from this race?")) return;
-      await deleteDoc(doc(db, "races", race.id, "registrations", currentUser.uid));
-      await loadRacesView();
-    };
-    div.appendChild(unregBtn);
-
-  } else {
-    const transponderLabel = document.createElement("label");
-    transponderLabel.className = "field-label";
-    transponderLabel.innerText = "Transponder";
-    div.appendChild(transponderLabel);
-
-    transponderInput = document.createElement("input");
-    transponderInput.type = "text";
-    transponderInput.inputMode = "numeric";
-    transponderInput.className = "transponder-input";
-    transponderInput.placeholder = "Optional, e.g. 4821337";
-    transponderInput.value = currentUserTransponder;
-    div.appendChild(transponderInput);
-  }
-
-  // Category rows: name, driver count, and Register when not yet registered
   race.categories.forEach(cat => {
+    const myEntry = myEntries.find(e => e.category === cat.name);
+
     const row = document.createElement("div");
-    row.className = "btn-row cat-line";
+    row.className = "cat-line";
+
+    const head = document.createElement("div");
+    head.className = "btn-row cat-head";
 
     const catName = document.createElement("span");
     catName.className = "cat-name";
     catName.innerText = cat.name;
+    head.appendChild(catName);
+
+    if (myEntry) {
+      const tag = document.createElement("span");
+      tag.className = "reg-tag";
+      tag.innerText = "✓ Registered" + (myEntry.transponder ? ` · #${myEntry.transponder}` : "");
+      head.appendChild(tag);
+    }
 
     const count = document.createElement("span");
     count.className = "count-pill";
     count.innerText = driverCount(byCategory.get(cat.name).length);
+    head.appendChild(count);
 
-    row.appendChild(catName);
-    row.appendChild(count);
+    const actionBtn = document.createElement("button");
+    actionBtn.className = myEntry ? "btn-ghost btn-sm" : "btn-primary btn-sm";
+    actionBtn.innerText = myEntry ? "Unregister" : "Register";
+    head.appendChild(actionBtn);
+    row.appendChild(head);
 
-    if (!myReg) {
-      const regBtn = document.createElement("button");
-      regBtn.className = "btn-primary btn-sm";
-      regBtn.innerText = "Register";
-      regBtn.onclick = async () => {
+    if (myEntry) {
+      actionBtn.onclick = async () => {
+        if (!confirm(`Unregister from ${cat.name}?`)) return;
+        await saveMyEntries(race, myReg, myEntries.filter(e => e.category !== cat.name));
+        await loadRacesView();
+      };
+    } else {
+      // Inline form: ask for this category's transponder before registering
+      const form = document.createElement("div");
+      form.className = "reg-form hidden";
+
+      const transponderInput = document.createElement("input");
+      transponderInput.type = "text";
+      transponderInput.inputMode = "numeric";
+      transponderInput.placeholder = "Transponder # (optional)";
+      transponderInput.value = currentUserTransponder;
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.className = "btn-primary btn-sm";
+      confirmBtn.innerText = "Confirm";
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn-secondary btn-sm";
+      cancelBtn.innerText = "Cancel";
+
+      form.appendChild(transponderInput);
+      form.appendChild(confirmBtn);
+      form.appendChild(cancelBtn);
+      row.appendChild(form);
+
+      actionBtn.onclick = () => {
+        form.classList.remove("hidden");
+        actionBtn.classList.add("hidden");
+        transponderInput.focus();
+        transponderInput.select();
+      };
+      cancelBtn.onclick = () => {
+        form.classList.add("hidden");
+        actionBtn.classList.remove("hidden");
+      };
+
+      const submit = async () => {
         const transponder = transponderInput.value.trim();
-        await setDoc(doc(db, "races", race.id, "registrations", currentUser.uid), {
-          uid: currentUser.uid,
-          email: currentUser.email,
-          name: currentUserName,
-          categories: [cat.name],
-          transponder: transponder || null,
-          registeredAt: serverTimestamp()
-        });
+        confirmBtn.disabled = true;
+        await saveMyEntries(race, myReg, [...myEntries, { category: cat.name, transponder: transponder || null }]);
         // Remember it to prefill the next registration
         if (transponder && transponder !== currentUserTransponder) {
           await setDoc(doc(db, "users", currentUser.uid), { transponder }, { merge: true });
@@ -702,7 +740,11 @@ function buildRaceCard(race, regs, myReg) {
         }
         await loadRacesView();
       };
-      row.appendChild(regBtn);
+      confirmBtn.onclick = submit;
+      transponderInput.onkeydown = e => {
+        if (e.key === "Enter") submit();
+        if (e.key === "Escape") cancelBtn.onclick();
+      };
     }
 
     div.appendChild(row);
@@ -724,10 +766,10 @@ function buildRaceCard(race, regs, myReg) {
       group.innerHTML = `
         <h4>${esc(name)} · ${drivers.length}</h4>
         <ol>
-          ${drivers.map(r => `
+          ${drivers.map(d => `
             <li>
-              ${esc(r.name || "Unnamed driver")}${r.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
-              ${r.transponder ? `<span class="transponder">#${esc(r.transponder)}</span>` : ""}
+              ${esc(d.name || "Unnamed driver")}${d.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
+              ${d.transponder ? `<span class="transponder">#${esc(d.transponder)}</span>` : ""}
             </li>`).join("")}
         </ol>
       `;

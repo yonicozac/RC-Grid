@@ -47,7 +47,9 @@ races/{raceId}
   categories: [{ name }]   // older races may still carry capacity/totalCapacity (unused)
   createdBy, createdAt
 races/{raceId}/registrations/{uid}
-  uid, email, name, categories: string[], transponder?, registeredAt
+  uid, email, name, registeredAt
+  entries: [{ category, transponder? }]   // one per category the driver entered
+  // legacy docs: categories: string[] + transponder? (read via regEntries())
 ```
 
 ## App flow
@@ -55,7 +57,7 @@ races/{raceId}/registrations/{uid}
 1. Sign in with a magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL).
 2. On first login, the user sets a name in `users/{uid}`.
 3. There are two views:
-   - **Races** (default): races from followed tracks, sorted by date. Register per category, with an optional transponder number. Each card shows driver counts (total and per category) and a collapsible list of registered drivers.
+   - **Races** (default): races from followed tracks, sorted by date. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers.
    - **Tracks**: approved tracks with search, sorted by distance when location is known (location cached in `localStorage` as `rcgrid_location`, cleared on logout). Includes follow (heart), the submit-track form, the admin pending queue, and the owner's "Add Race" panel.
 
 ## Conventions
