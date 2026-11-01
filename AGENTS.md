@@ -57,7 +57,7 @@ races/{raceId}/registrations/{uid}
 1. Sign in with a magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL).
 2. On first login, the user sets a name in `users/{uid}`.
 3. There are two views:
-   - **Races** (default): races from followed tracks, sorted by date. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers.
+   - **Races** (default): races from followed tracks, sorted by date. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers. Anyone can download the list as a RaceLyx-compatible CSV (`Name,Class,Transponder`, one row per driver per class, UTF-8 with BOM).
    - **Tracks**: approved tracks with search, sorted by distance when location is known (location cached in `localStorage` as `rcgrid_location`, cleared on logout). Includes follow (heart), the submit-track form, the admin pending queue, and the owner's "Add Race" panel.
 
 ## Conventions

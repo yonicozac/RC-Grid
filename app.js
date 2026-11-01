@@ -645,6 +645,33 @@ async function deleteRace(raceId, regs) {
   await batch.commit();
 }
 
+// RaceLyx-compatible driver import: one row per driver per class
+// (https://racelyx.com/learn/director-import-drivers-csv/)
+function driversCsv(byCategory) {
+  const cell = v => {
+    const str = String(v ?? "");
+    return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const rows = [["Name", "Class", "Transponder"]];
+  byCategory.forEach((drivers, category) => {
+    drivers.forEach(d => rows.push([d.name || "", category, d.transponder || ""]));
+  });
+  return rows.map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
+}
+
+function downloadCsv(filename, text) {
+  // BOM so Excel opens non-ASCII names (e.g. Hebrew) as UTF-8
+  const blob = new Blob(["\uFEFF" + text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Race manager action: drop one category entry, or the whole registration if it was the last
 async function removeDriverEntry(raceId, reg, category) {
   const ref = doc(db, "races", raceId, "registrations", reg.uid);
@@ -829,6 +856,16 @@ function buildRaceCard(race, regs, myReg) {
     };
 
     footer.appendChild(toggleBtn);
+
+    const csvBtn = document.createElement("button");
+    csvBtn.className = "btn-ghost btn-sm";
+    csvBtn.innerText = "Download CSV";
+    csvBtn.title = "Driver list (Name, Class, Transponder) for import into timing software";
+    csvBtn.onclick = () => {
+      const safeName = `${race.date} ${race.name}`.replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, "-");
+      downloadCsv(`${safeName}-drivers.csv`, driversCsv(byCategory));
+    };
+    footer.appendChild(csvBtn);
   }
 
   // Track owner (race creator) or admin can delete the race
