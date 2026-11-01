@@ -84,7 +84,9 @@ sendLinkBtn.onclick = async () => {
   if (!email) { alert("Enter your email"); return; }
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
   localStorage.setItem("emailForSignIn", email);
-  loginStatus.innerText = "Login link sent. Check your email.";
+  loginStatus.innerHTML = `Login link sent to <b>${esc(email)}</b>.<br>
+    Can't find it? Check your spam folder. It comes from
+    <span class="sender">noreply@${firebaseConfig.authDomain}</span>`;
 };
 
 if (isSignInWithEmailLink(auth, window.location.href)) {
