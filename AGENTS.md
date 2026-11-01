@@ -20,8 +20,8 @@ Lightweight RC race management app: racers follow tracks and register for races,
 ## Roles
 
 - **Racer**: any signed-in user with a name set. Can follow tracks and register for races.
-- **Track owner**: the `createdBy` uid on a track. Can create races for that track and delete them (Delete race on the race card).
-- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks, and can delete any race.
+- **Track owner**: the `createdBy` uid on a track. Can create races for that track, delete them (Delete race on the race card), and remove drivers from a category (× in the driver list).
+- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks, and can delete any race or remove any driver.
 - Anyone signed in can submit a track. It starts as `pending`, and only an admin can change its status.
 
 ## Data model

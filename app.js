@@ -645,9 +645,18 @@ async function deleteRace(raceId, regs) {
   await batch.commit();
 }
 
+// Race manager action: drop one category entry, or the whole registration if it was the last
+async function removeDriverEntry(raceId, reg, category) {
+  const ref = doc(db, "races", raceId, "registrations", reg.uid);
+  const entries = regEntries(reg).filter(e => e.category !== category);
+  if (entries.length === 0) await deleteDoc(ref);
+  else await updateDoc(ref, { entries });
+}
+
 function buildRaceCard(race, regs, myReg) {
   const div = document.createElement("div");
   div.className = "card";
+  const canManage = race.createdBy === currentUser.uid || isAdmin;
 
   const myEntries = regEntries(myReg);
 
@@ -655,7 +664,7 @@ function buildRaceCard(race, regs, myReg) {
   const byCategory = new Map(race.categories.map(c => [c.name, []]));
   regs.forEach(r => regEntries(r).forEach(e => {
     if (!byCategory.has(e.category)) byCategory.set(e.category, []);
-    byCategory.get(e.category).push({ uid: r.uid, name: r.name, transponder: e.transponder });
+    byCategory.get(e.category).push({ uid: r.uid, name: r.name, transponder: e.transponder, reg: r });
   }));
 
   div.innerHTML = `
@@ -776,16 +785,41 @@ function buildRaceCard(race, regs, myReg) {
       if (drivers.length === 0) return;
       const group = document.createElement("div");
       group.className = "drivers-group";
-      group.innerHTML = `
-        <h4>${esc(name)} · ${drivers.length}</h4>
-        <ol>
-          ${drivers.map(d => `
-            <li>
-              ${esc(d.name || "Unnamed driver")}${d.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
-              ${d.transponder ? `<span class="transponder">#${esc(d.transponder)}</span>` : ""}
-            </li>`).join("")}
-        </ol>
-      `;
+      group.innerHTML = `<h4>${esc(name)} · ${drivers.length}</h4>`;
+      const ol = document.createElement("ol");
+
+      drivers.forEach(d => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          ${esc(d.name || "Unnamed driver")}${d.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
+          ${d.transponder ? `<span class="transponder">#${esc(d.transponder)}</span>` : ""}
+        `;
+
+        if (canManage) {
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "remove-driver-btn";
+          removeBtn.innerText = "×";
+          removeBtn.title = `Remove from ${name}`;
+          removeBtn.onclick = async () => {
+            if (!confirm(`Remove ${d.name || "this driver"} from ${name}?`)) return;
+            removeBtn.disabled = true;
+            try {
+              await removeDriverEntry(race.id, d.reg, name);
+            } catch (err) {
+              console.error(err);
+              alert("Couldn't remove this driver. Please try again.");
+              removeBtn.disabled = false;
+              return;
+            }
+            await loadRacesView();
+          };
+          li.appendChild(removeBtn);
+        }
+
+        ol.appendChild(li);
+      });
+
+      group.appendChild(ol);
       list.appendChild(group);
     });
 
@@ -798,7 +832,7 @@ function buildRaceCard(race, regs, myReg) {
   }
 
   // Track owner (race creator) or admin can delete the race
-  if (race.createdBy === currentUser.uid || isAdmin) {
+  if (canManage) {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn-danger btn-sm delete-race-btn";
     deleteBtn.innerText = "Delete race";

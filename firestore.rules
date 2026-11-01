@@ -78,10 +78,18 @@ service cloud.firestore {
         // Users can only write their own registration
         allow write: if isOwner(userId);
 
-        // Race creator or admin can clear registrations when deleting the race
-        allow delete: if isAdmin() ||
-          (isAuthenticated() &&
-            get(/databases/$(database)/documents/races/$(raceId)).data.createdBy == request.auth.uid);
+        function isRaceManager() {
+          return isAdmin() ||
+            (isAuthenticated() &&
+              get(/databases/$(database)/documents/races/$(raceId)).data.createdBy == request.auth.uid);
+        }
+
+        // Race creator or admin can remove a driver from a category (entries only)...
+        allow update: if isRaceManager() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["entries"]);
+
+        // ...or remove the driver entirely (also used when deleting the race)
+        allow delete: if isRaceManager();
       }
     }
 
