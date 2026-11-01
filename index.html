@@ -604,7 +604,8 @@ label input[type="checkbox"] {
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
-.card-footer .delete-race-btn { margin-left: auto; }
+.card-footer .delete-race-btn,
+.delete-track-btn { margin-left: auto; }
 
 .drivers-list {
   margin-top: 14px;
@@ -615,6 +616,25 @@ label input[type="checkbox"] {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px 24px;
+}
+
+.drivers-list-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drivers-list-actions span {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
 .drivers-group h4 {

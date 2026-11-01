@@ -357,11 +357,45 @@ function buildTrackCard(trackDoc) {
   cardHeader.appendChild(heartBtn);
   div.appendChild(cardHeader);
 
-  // Owner: add race toggle
-  if (isOwner) {
+  if (isOwner || isAdmin) {
     const btnRow = document.createElement("div");
     btnRow.className = "btn-row";
+    div.appendChild(btnRow);
 
+    // Owner or admin: delete track (and its races)
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn-danger btn-sm delete-track-btn";
+    deleteBtn.innerText = "Delete track";
+    deleteBtn.onclick = async () => {
+      deleteBtn.disabled = true;
+      try {
+        const raceSnap = await getDocs(query(collection(db, "races"), where("trackId", "==", id)));
+        const raceDocs = raceSnap.docs;
+        const warning = raceDocs.length > 0
+          ? `\n\nThis also deletes its ${raceDocs.length} race${raceDocs.length === 1 ? "" : "s"} and all their registrations.`
+          : "";
+        if (!confirm(`Delete track "${t.name}"?${warning}`)) {
+          deleteBtn.disabled = false;
+          return;
+        }
+        await deleteTrack(id, raceDocs);
+      } catch (err) {
+        console.error(err);
+        alert("Couldn't delete this track. Please try again.");
+        deleteBtn.disabled = false;
+        return;
+      }
+      if (followedTrackIds.has(id)) {
+        await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
+        followedTrackIds.delete(id);
+      }
+      await loadTracksView();
+    };
+    btnRow.appendChild(deleteBtn);
+
+    if (!isOwner) return div;
+
+    // Owner: add race toggle
     const addRaceBtn = document.createElement("button");
     addRaceBtn.className = "btn-ghost btn-sm";
     addRaceBtn.innerText = "Add Race";
@@ -378,12 +412,29 @@ function buildTrackCard(trackDoc) {
       }
     };
 
-    btnRow.appendChild(addRaceBtn);
-    div.appendChild(btnRow);
+    btnRow.prepend(addRaceBtn);
     div.appendChild(racePanel);
   }
 
   return div;
+}
+
+// Delete a track with all its races and their registrations.
+// Batches cap at 500 writes, so commit in chunks: registrations first, then races, then the track.
+async function deleteTrack(trackId, raceDocs) {
+  const refs = [];
+  for (const raceDoc of raceDocs) {
+    const regSnap = await getDocs(collection(db, "races", raceDoc.id, "registrations"));
+    regSnap.forEach(r => refs.push(r.ref));
+  }
+  raceDocs.forEach(r => refs.push(r.ref));
+  refs.push(doc(db, "tracks", trackId));
+
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
 }
 
 function buildPendingCard(trackDoc) {
@@ -857,6 +908,10 @@ function buildRaceCard(race, regs, myReg) {
 
     footer.appendChild(toggleBtn);
 
+    const listActions = document.createElement("div");
+    listActions.className = "drivers-list-actions";
+    listActions.innerHTML = `<span>Registered drivers</span>`;
+
     const csvBtn = document.createElement("button");
     csvBtn.className = "btn-ghost btn-sm";
     csvBtn.innerText = "Download CSV";
@@ -865,7 +920,8 @@ function buildRaceCard(race, regs, myReg) {
       const safeName = `${race.date} ${race.name}`.replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, "-");
       downloadCsv(`${safeName}-drivers.csv`, driversCsv(byCategory));
     };
-    footer.appendChild(csvBtn);
+    listActions.appendChild(csvBtn);
+    list.prepend(listActions);
   }
 
   // Track owner (race creator) or admin can delete the race

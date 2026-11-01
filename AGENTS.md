@@ -20,8 +20,8 @@ Lightweight RC race management app: racers follow tracks and register for races,
 ## Roles
 
 - **Racer**: any signed-in user with a name set. Can follow tracks and register for races.
-- **Track owner**: the `createdBy` uid on a track. Can create races for that track, delete them (Delete race on the race card), and remove drivers from a category (× in the driver list).
-- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks, and can delete any race or remove any driver.
+- **Track owner**: the `createdBy` uid on a track. Can delete the track (with all its races), create races for it, delete them (Delete race on the race card), and remove drivers from a category (× in the driver list).
+- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks, and can delete any track or race, or remove any driver.
 - Anyone signed in can submit a track. It starts as `pending`, and only an admin can change its status.
 
 ## Data model
@@ -66,7 +66,7 @@ races/{raceId}/registrations/{uid}
 - Build DOM with `document.createElement`. Any user-provided string interpolated into `innerHTML` must go through `esc()`, and links through `safeHref()`.
 - `app.js` is split into sections by `/* ---------------- Section ---------------- */` comment banners. Put new code in the matching section.
 - After a mutation, re-render by calling the view loader again (for example `loadRacesView()`).
-- Deleting a race uses a batched write that also deletes its `registrations` docs (Firestore doesn't cascade subcollection deletes).
+- Deleting a race uses a batched write that also deletes its `registrations` docs (Firestore doesn't cascade subcollection deletes). Deleting a track does the same for all its races (`deleteTrack`, chunked to stay under the 500-write batch limit). Other users' `following/{trackId}` docs for a deleted track are left behind; they're harmless but still count toward the 30-track `in` query limit.
 - Any change to permissions or data shape needs a matching `firestore.rules` update. Deploy with `firebase deploy --only firestore:rules`.
 
 ## Gotchas
