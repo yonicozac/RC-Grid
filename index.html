@@ -694,6 +694,25 @@ label input[type="checkbox"] {
   vertical-align: 1px;
 }
 
+/* ---- Past races (collapsed, low-key) ---- */
+.past-toggle {
+  display: block;
+  margin: 28px 0 12px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.past-toggle:hover { color: var(--text-2); }
+
+.card.past { opacity: 0.7; }
+.card.past:hover { opacity: 1; }
+
 /* ---- Status message ---- */
 .status-msg {
   font-size: 0.82rem;

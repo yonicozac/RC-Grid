@@ -646,19 +646,59 @@ async function loadRacesView() {
   const races = [];
   snap.forEach(d => races.push({ id: d.id, ...d.data() }));
 
-  races.sort((a, b) => a.date.localeCompare(b.date));
-
   const regSnaps = await Promise.all(
     races.map(race => getDocs(collection(db, "races", race.id, "registrations")))
   );
 
+  const regsByRace = new Map();
   races.forEach((race, i) => {
     const regs = [];
     regSnaps[i].forEach(d => regs.push({ ...d.data(), uid: d.id }));
     regs.sort((a, b) => (a.registeredAt?.toMillis() ?? 0) - (b.registeredAt?.toMillis() ?? 0));
-    const myReg = regs.find(r => r.uid === currentUser.uid) ?? null;
-    racesContainer.appendChild(buildRaceCard(race, regs, myReg));
+    regsByRace.set(race.id, regs);
   });
+
+  const cardFor = (race, isPast) => {
+    const regs = regsByRace.get(race.id);
+    const myReg = regs.find(r => r.uid === currentUser.uid) ?? null;
+    return buildRaceCard(race, regs, myReg, isPast);
+  };
+
+  // Upcoming (today or later) soonest first; past races most recent first, collapsed
+  const today = localDateString();
+  const upcoming = races.filter(r => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const past = races.filter(r => r.date < today).sort((a, b) => b.date.localeCompare(a.date));
+
+  if (upcoming.length === 0) {
+    racesContainer.innerHTML = '<div class="empty-state"><p>No upcoming races for your followed tracks.</p></div>';
+  }
+  upcoming.forEach(race => racesContainer.appendChild(cardFor(race, false)));
+
+  if (past.length > 0) {
+    const pastToggle = document.createElement("button");
+    pastToggle.className = "past-toggle";
+
+    const pastList = document.createElement("div");
+    pastList.className = "past-races hidden";
+    past.forEach(race => pastList.appendChild(cardFor(race, true)));
+
+    const setLabel = () => {
+      const open = !pastList.classList.contains("hidden");
+      pastToggle.innerText = `${open ? "▾" : "▸"} Past races (${past.length})`;
+    };
+    pastToggle.onclick = () => {
+      pastList.classList.toggle("hidden");
+      setLabel();
+    };
+    setLabel();
+
+    racesContainer.appendChild(pastToggle);
+    racesContainer.appendChild(pastList);
+  }
+}
+
+function localDateString(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function driverCount(n) {
@@ -731,9 +771,9 @@ async function removeDriverEntry(raceId, reg, category) {
   else await updateDoc(ref, { entries });
 }
 
-function buildRaceCard(race, regs, myReg) {
+function buildRaceCard(race, regs, myReg, isPast = false) {
   const div = document.createElement("div");
-  div.className = "card";
+  div.className = isPast ? "card past" : "card";
   const canManage = race.createdBy === currentUser.uid || isAdmin;
 
   const myEntries = regEntries(myReg);
@@ -773,11 +813,18 @@ function buildRaceCard(race, regs, myReg) {
       head.appendChild(tag);
     }
 
+    row.appendChild(head);
+
+    // Registration is closed once the race date has passed
+    if (isPast) {
+      div.appendChild(row);
+      return;
+    }
+
     const actionBtn = document.createElement("button");
     actionBtn.className = myEntry ? "btn-ghost btn-sm" : "btn-primary btn-sm";
     actionBtn.innerText = myEntry ? "Unregister" : "Register";
     head.appendChild(actionBtn);
-    row.appendChild(head);
 
     if (myEntry) {
       actionBtn.onclick = async () => {
