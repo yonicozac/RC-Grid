@@ -232,6 +232,13 @@ function setPendingBadge(count) {
   pendingBadge.classList.toggle("hidden", count === 0);
 }
 
+// Rough distance from the viewer, e.g. "12 km"; null if either location is unknown
+function distanceLabel(track) {
+  if (!tracksViewCoords || track.lat == null || track.lng == null) return null;
+  const km = haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, track.lat, track.lng);
+  return km < 1 ? "< 1 km" : `${Math.round(km).toLocaleString("en-US")} km`;
+}
+
 /* ---------------- Follow State ---------------- */
 
 async function loadFollowedTracks() {
@@ -348,6 +355,7 @@ function buildTrackCard(trackDoc) {
     <h3>${esc(t.name)}</h3>
     <div class="meta">
       ${esc(t.location)}
+      ${distanceLabel(t) ? ` · ${distanceLabel(t)}` : ""}
       ${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener">Website</a>` : ""}
     </div>
     ${t.description ? `<p>${esc(t.description)}</p>` : ""}
