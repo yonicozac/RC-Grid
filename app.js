@@ -596,25 +596,42 @@ async function loadRacesView() {
 
   races.sort((a, b) => a.date.localeCompare(b.date));
 
-  for (const race of races) {
-    const regDoc = await getDoc(
-      doc(db, "races", race.id, "registrations", currentUser.uid)
-    );
-    const myReg = regDoc.exists() ? regDoc.data() : null;
-    racesContainer.appendChild(buildRaceCard(race, myReg));
-  }
+  const regSnaps = await Promise.all(
+    races.map(race => getDocs(collection(db, "races", race.id, "registrations")))
+  );
+
+  races.forEach((race, i) => {
+    const regs = [];
+    regSnaps[i].forEach(d => regs.push({ ...d.data(), uid: d.id }));
+    regs.sort((a, b) => (a.registeredAt?.toMillis() ?? 0) - (b.registeredAt?.toMillis() ?? 0));
+    const myReg = regs.find(r => r.uid === currentUser.uid) ?? null;
+    racesContainer.appendChild(buildRaceCard(race, regs, myReg));
+  });
 }
 
-function buildRaceCard(race, myReg) {
+function driverCount(n) {
+  return `${n} driver${n === 1 ? "" : "s"}`;
+}
+
+function buildRaceCard(race, regs, myReg) {
   const div = document.createElement("div");
   div.className = "card";
+
+  // Group registrations by category, keeping the race's category order
+  const byCategory = new Map(race.categories.map(c => [c.name, []]));
+  regs.forEach(r => (r.categories ?? []).forEach(name => {
+    if (!byCategory.has(name)) byCategory.set(name, []);
+    byCategory.get(name).push(r);
+  }));
 
   div.innerHTML = `
     <h3>${esc(race.name)}</h3>
     <div class="meta">
-      ${esc(race.trackName)} · ${esc(race.date)}
+      ${esc(race.trackName)} · ${esc(race.date)} · ${driverCount(regs.length)} registered
     </div>
   `;
+
+  let transponderInput = null;
 
   if (myReg) {
     const regInfo = document.createElement("div");
@@ -634,31 +651,37 @@ function buildRaceCard(race, myReg) {
     div.appendChild(unregBtn);
 
   } else {
-    const formDiv = document.createElement("div");
-
     const transponderLabel = document.createElement("label");
     transponderLabel.className = "field-label";
     transponderLabel.innerText = "Transponder";
-    formDiv.appendChild(transponderLabel);
+    div.appendChild(transponderLabel);
 
-    const transponderInput = document.createElement("input");
+    transponderInput = document.createElement("input");
     transponderInput.type = "text";
     transponderInput.inputMode = "numeric";
     transponderInput.className = "transponder-input";
     transponderInput.placeholder = "Optional, e.g. 4821337";
     transponderInput.value = currentUserTransponder;
-    formDiv.appendChild(transponderInput);
+    div.appendChild(transponderInput);
+  }
 
-    race.categories.forEach(cat => {
-      const row = document.createElement("div");
-      row.className = "btn-row";
-      row.style.alignItems = "center";
+  // Category rows: name, driver count, and Register when not yet registered
+  race.categories.forEach(cat => {
+    const row = document.createElement("div");
+    row.className = "btn-row cat-line";
 
-      const catName = document.createElement("span");
-      catName.style.flex = "1";
-      catName.style.fontSize = "0.9rem";
-      catName.innerText = cat.name;
+    const catName = document.createElement("span");
+    catName.className = "cat-name";
+    catName.innerText = cat.name;
 
+    const count = document.createElement("span");
+    count.className = "count-pill";
+    count.innerText = driverCount(byCategory.get(cat.name).length);
+
+    row.appendChild(catName);
+    row.appendChild(count);
+
+    if (!myReg) {
       const regBtn = document.createElement("button");
       regBtn.className = "btn-primary btn-sm";
       regBtn.innerText = "Register";
@@ -679,13 +702,45 @@ function buildRaceCard(race, myReg) {
         }
         await loadRacesView();
       };
-
-      row.appendChild(catName);
       row.appendChild(regBtn);
-      formDiv.appendChild(row);
+    }
+
+    div.appendChild(row);
+  });
+
+  // Registered drivers list, collapsed by default
+  if (regs.length > 0) {
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "btn-ghost btn-sm drivers-toggle";
+    toggleBtn.innerText = `Show drivers (${regs.length})`;
+
+    const list = document.createElement("div");
+    list.className = "drivers-list hidden";
+
+    byCategory.forEach((drivers, name) => {
+      if (drivers.length === 0) return;
+      const group = document.createElement("div");
+      group.className = "drivers-group";
+      group.innerHTML = `
+        <h4>${esc(name)} · ${drivers.length}</h4>
+        <ol>
+          ${drivers.map(r => `
+            <li>
+              ${esc(r.name || "Unnamed driver")}${r.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
+              ${r.transponder ? `<span class="transponder">#${esc(r.transponder)}</span>` : ""}
+            </li>`).join("")}
+        </ol>
+      `;
+      list.appendChild(group);
     });
 
-    div.appendChild(formDiv);
+    toggleBtn.onclick = () => {
+      const hidden = list.classList.toggle("hidden");
+      toggleBtn.innerText = `${hidden ? "Show" : "Hide"} drivers (${regs.length})`;
+    };
+
+    div.appendChild(toggleBtn);
+    div.appendChild(list);
   }
 
   return div;

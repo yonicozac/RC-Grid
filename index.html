@@ -533,6 +533,64 @@ input.transponder-input {
   margin: 6px 0 8px;
 }
 
+/* ---- Race card categories + drivers ---- */
+.cat-line { align-items: center; }
+
+.cat-name { flex: 1; font-size: 0.9rem; }
+
+.count-pill {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.drivers-toggle { margin-top: 18px; }
+
+.drivers-list {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px 28px;
+}
+
+.drivers-group h4 {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.drivers-group ol {
+  padding-left: 20px;
+  font-size: 0.88rem;
+}
+
+.drivers-group li { padding: 3px 0; }
+.drivers-group li::marker { color: var(--text-muted); font-size: 0.8rem; }
+
+.drivers-group .transponder {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.you-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-left: 4px;
+}
+
 /* ---- Registered tag ---- */
 .reg-badge {
   display: inline-flex;
