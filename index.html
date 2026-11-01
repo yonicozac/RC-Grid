@@ -87,6 +87,20 @@ nav button {
 nav button:hover { color: #fff; background: rgba(255,255,255,0.08); }
 nav button.active { color: #fff; background: rgba(255,255,255,0.12); }
 
+.nav-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
 #logoutBtn {
   margin-left: auto;
   background: none;
@@ -518,7 +532,7 @@ label input[type="checkbox"] {
     <div class="logo">RC<span>Grid</span></div>
     <nav>
       <button id="navRaces">Races</button>
-      <button id="navTracks">Tracks</button>
+      <button id="navTracks">Tracks<span id="pendingBadge" class="nav-badge hidden"></span></button>
     </nav>
     <button id="logoutBtn">Logout</button>
   </div>

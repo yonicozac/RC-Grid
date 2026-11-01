@@ -61,6 +61,7 @@ const loginStatus = document.getElementById("loginStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 const navTracks = document.getElementById("navTracks");
 const navRaces = document.getElementById("navRaces");
+const pendingBadge = document.getElementById("pendingBadge");
 const tracksView = document.getElementById("tracksView");
 const racesView = document.getElementById("racesView");
 const tracksContainer = document.getElementById("tracksContainer");
@@ -100,6 +101,7 @@ onAuthStateChanged(auth, async (user) => {
     appArea.classList.add("hidden");
     currentUser = null;
     currentUserName = null;
+    setPendingBadge(0);
     return;
   }
 
@@ -120,6 +122,7 @@ onAuthStateChanged(auth, async (user) => {
 
   const adminDoc = await getDoc(doc(db, "admins", user.uid));
   isAdmin = adminDoc.exists();
+  if (isAdmin) await refreshPendingBadge();
 
   await loadFollowedTracks();
   showView("races");
@@ -144,6 +147,7 @@ document.getElementById("saveNameBtn").onclick = async () => {
 
   const adminDoc = await getDoc(doc(db, "admins", currentUser.uid));
   isAdmin = adminDoc.exists();
+  if (isAdmin) await refreshPendingBadge();
 
   await loadFollowedTracks();
   showView("races");
@@ -202,6 +206,12 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function setPendingBadge(count) {
+  pendingBadge.innerText = count;
+  pendingBadge.title = `${count} track${count === 1 ? "" : "s"} awaiting approval`;
+  pendingBadge.classList.toggle("hidden", count === 0);
 }
 
 /* ---------------- Follow State ---------------- */
@@ -267,6 +277,7 @@ document.getElementById("trackSearch").oninput = e => renderTrackList(e.target.v
 async function loadPendingTracks() {
   pendingContainer.innerHTML = "";
   const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "pending")));
+  setPendingBadge(snap.size);
 
   if (snap.empty) {
     adminPendingPanel.classList.add("hidden");
@@ -275,6 +286,11 @@ async function loadPendingTracks() {
 
   adminPendingPanel.classList.remove("hidden");
   snap.forEach(d => pendingContainer.appendChild(buildPendingCard(d)));
+}
+
+async function refreshPendingBadge() {
+  const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "pending")));
+  setPendingBadge(snap.size);
 }
 
 function buildTrackCard(trackDoc) {
