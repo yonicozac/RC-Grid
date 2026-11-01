@@ -20,8 +20,8 @@ Lightweight RC race management app: racers follow tracks and register for races,
 ## Roles
 
 - **Racer**: any signed-in user with a name set. Can follow tracks and register for races.
-- **Track owner**: the `createdBy` uid on a track. Can create races for that track.
-- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks.
+- **Track owner**: the `createdBy` uid on a track. Can create races for that track and delete them (Delete race on the race card).
+- **Admin**: a doc exists at `admins/{uid}` (created manually, never written by the client). Approves or rejects pending tracks, and can delete any race.
 - Anyone signed in can submit a track. It starts as `pending`, and only an admin can change its status.
 
 ## Data model
@@ -66,6 +66,7 @@ races/{raceId}/registrations/{uid}
 - Build DOM with `document.createElement`. Any user-provided string interpolated into `innerHTML` must go through `esc()`, and links through `safeHref()`.
 - `app.js` is split into sections by `/* ---------------- Section ---------------- */` comment banners. Put new code in the matching section.
 - After a mutation, re-render by calling the view loader again (for example `loadRacesView()`).
+- Deleting a race uses a batched write that also deletes its `registrations` docs (Firestore doesn't cascade subcollection deletes).
 - Any change to permissions or data shape needs a matching `firestore.rules` update. Deploy with `firebase deploy --only firestore:rules`.
 
 ## Gotchas

@@ -62,9 +62,13 @@ service cloud.firestore {
         request.resource.data.createdBy == request.auth.uid &&
         get(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.createdBy == request.auth.uid;
 
-      // Only the race creator (track owner) can update/delete
-      allow update, delete: if isAuthenticated() &&
+      // Only the race creator (track owner) can update
+      allow update: if isAuthenticated() &&
         resource.data.createdBy == request.auth.uid;
+
+      // Race creator (track owner) or admin can delete
+      allow delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.createdBy == request.auth.uid);
 
       // ---- Registrations ----
       match /registrations/{userId} {
@@ -73,6 +77,11 @@ service cloud.firestore {
 
         // Users can only write their own registration
         allow write: if isOwner(userId);
+
+        // Race creator or admin can clear registrations when deleting the race
+        allow delete: if isAdmin() ||
+          (isAuthenticated() &&
+            get(/databases/$(database)/documents/races/$(raceId)).data.createdBy == request.auth.uid);
       }
     }
 

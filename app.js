@@ -23,7 +23,8 @@ import {
   updateDoc,
   query,
   where,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /* ---------------- Firebase Config ---------------- */
@@ -636,6 +637,14 @@ async function saveMyEntries(race, myReg, entries) {
   }
 }
 
+// Delete the race and its registrations together
+async function deleteRace(raceId, regs) {
+  const batch = writeBatch(db);
+  regs.forEach(r => batch.delete(doc(db, "races", raceId, "registrations", r.uid)));
+  batch.delete(doc(db, "races", raceId));
+  await batch.commit();
+}
+
 function buildRaceCard(race, regs, myReg) {
   const div = document.createElement("div");
   div.className = "card";
@@ -750,13 +759,17 @@ function buildRaceCard(race, regs, myReg) {
     div.appendChild(row);
   });
 
+  const footer = document.createElement("div");
+  footer.className = "btn-row card-footer";
+  let list = null;
+
   // Registered drivers list, collapsed by default
   if (regs.length > 0) {
     const toggleBtn = document.createElement("button");
-    toggleBtn.className = "btn-ghost btn-sm drivers-toggle";
+    toggleBtn.className = "btn-ghost btn-sm";
     toggleBtn.innerText = `Show drivers (${regs.length})`;
 
-    const list = document.createElement("div");
+    list = document.createElement("div");
     list.className = "drivers-list hidden";
 
     byCategory.forEach((drivers, name) => {
@@ -781,9 +794,33 @@ function buildRaceCard(race, regs, myReg) {
       toggleBtn.innerText = `${hidden ? "Show" : "Hide"} drivers (${regs.length})`;
     };
 
-    div.appendChild(toggleBtn);
-    div.appendChild(list);
+    footer.appendChild(toggleBtn);
   }
+
+  // Track owner (race creator) or admin can delete the race
+  if (race.createdBy === currentUser.uid || isAdmin) {
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn-danger btn-sm delete-race-btn";
+    deleteBtn.innerText = "Delete race";
+    deleteBtn.onclick = async () => {
+      const warning = regs.length > 0 ? `\n\n${driverCount(regs.length)} registered will be removed.` : "";
+      if (!confirm(`Delete "${race.name}"?${warning}`)) return;
+      deleteBtn.disabled = true;
+      try {
+        await deleteRace(race.id, regs);
+      } catch (err) {
+        console.error(err);
+        alert("Couldn't delete this race. Please try again.");
+        deleteBtn.disabled = false;
+        return;
+      }
+      await loadRacesView();
+    };
+    footer.appendChild(deleteBtn);
+  }
+
+  if (footer.children.length > 0) div.appendChild(footer);
+  if (list) div.appendChild(list);
 
   return div;
 }
