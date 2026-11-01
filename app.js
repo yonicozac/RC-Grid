@@ -44,6 +44,7 @@ await setPersistence(auth, browserLocalPersistence);
 
 let currentUser = null;
 let currentUserName = null;
+let currentUserTransponder = "";
 let isAdmin = false;
 let followedTrackIds = new Set();
 let cachedTrackDocs = [];
@@ -86,10 +87,22 @@ sendLinkBtn.onclick = async () => {
 };
 
 if (isSignInWithEmailLink(auth, window.location.href)) {
-  let email = localStorage.getItem("emailForSignIn");
-  if (!email) email = prompt("Confirm your email");
-  await signInWithEmailLink(auth, email, window.location.href);
-  localStorage.removeItem("emailForSignIn");
+  // Skip if a saved session already exists (e.g. reloading a used link)
+  await auth.authStateReady();
+  if (!auth.currentUser) {
+    const email = localStorage.getItem("emailForSignIn") || prompt("Confirm your email");
+    if (email) {
+      try {
+        await signInWithEmailLink(auth, email, window.location.href);
+        localStorage.removeItem("emailForSignIn");
+      } catch (err) {
+        console.error(err);
+        loginStatus.innerText = "This login link is invalid or has expired. Please request a new one.";
+      }
+    }
+  }
+  // Strip the one-time link params so a reload doesn't re-run sign-in
+  history.replaceState(null, "", window.location.pathname);
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -101,6 +114,7 @@ onAuthStateChanged(auth, async (user) => {
     appArea.classList.add("hidden");
     currentUser = null;
     currentUserName = null;
+    currentUserTransponder = "";
     setPendingBadge(0);
     return;
   }
@@ -110,6 +124,7 @@ onAuthStateChanged(auth, async (user) => {
 
   const userDoc = await getDoc(doc(db, "users", user.uid));
   currentUserName = userDoc.exists() ? userDoc.data().name : null;
+  currentUserTransponder = userDoc.exists() ? userDoc.data().transponder ?? "" : "";
 
   if (!currentUserName) {
     nameSetupArea.classList.remove("hidden");
@@ -469,13 +484,6 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   container.appendChild(dateInput);
   container.appendChild(document.createElement("br"));
 
-  const totalCapInput = document.createElement("input");
-  totalCapInput.type = "number";
-  totalCapInput.placeholder = "Total capacity (optional)";
-  totalCapInput.min = "1";
-  container.appendChild(totalCapInput);
-  container.appendChild(document.createElement("br"));
-
   // Categories
   const catsLabel = document.createElement("p");
   catsLabel.innerText = "Categories:";
@@ -492,17 +500,11 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
     nameIn.type = "text";
     nameIn.placeholder = "Category name (e.g. 2WD Buggy)";
 
-    const capIn = document.createElement("input");
-    capIn.type = "number";
-    capIn.placeholder = "Capacity (optional)";
-    capIn.min = "1";
-
     const removeBtn = document.createElement("button");
     removeBtn.innerText = "×";
     removeBtn.onclick = () => row.remove();
 
     row.appendChild(nameIn);
-    row.appendChild(capIn);
     row.appendChild(removeBtn);
     catsDiv.appendChild(row);
   }
@@ -522,19 +524,13 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   createRaceBtn.onclick = async () => {
     const name = nameInput.value.trim();
     const date = dateInput.value;
-    const totalCap = totalCapInput.value;
 
     if (!name || !date) { alert("Name and date are required"); return; }
 
     const categories = [];
     catsDiv.querySelectorAll(".cat-row").forEach(row => {
       const catName = row.querySelector("input[type=text]").value.trim();
-      const cap = row.querySelector("input[type=number]").value;
-      if (catName) {
-        const cat = { name: catName };
-        if (cap) cat.capacity = parseInt(cap);
-        categories.push(cat);
-      }
+      if (catName) categories.push({ name: catName });
     });
 
     if (categories.length === 0) { alert("Add at least one category"); return; }
@@ -548,7 +544,6 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
       createdBy: currentUser.uid,
       createdAt: serverTimestamp()
     };
-    if (totalCap) raceData.totalCapacity = parseInt(totalCap);
     if (trackLat != null) { raceData.trackLat = trackLat; raceData.trackLng = trackLng; }
 
     await addDoc(collection(db, "races"), raceData);
@@ -618,14 +613,14 @@ function buildRaceCard(race, myReg) {
     <h3>${esc(race.name)}</h3>
     <div class="meta">
       ${esc(race.trackName)} · ${esc(race.date)}
-      ${race.totalCapacity ? ` · Max ${race.totalCapacity} racers` : ""}
     </div>
   `;
 
   if (myReg) {
     const regInfo = document.createElement("div");
     regInfo.className = "reg-badge";
-    regInfo.innerHTML = `✓ Registered: ${myReg.categories.map(esc).join(", ")}`;
+    regInfo.innerHTML = `✓ Registered: ${myReg.categories.map(esc).join(", ")}` +
+      (myReg.transponder ? ` · Transponder ${esc(myReg.transponder)}` : "");
     div.appendChild(regInfo);
 
     const unregBtn = document.createElement("button");
@@ -641,6 +636,19 @@ function buildRaceCard(race, myReg) {
   } else {
     const formDiv = document.createElement("div");
 
+    const transponderLabel = document.createElement("label");
+    transponderLabel.className = "field-label";
+    transponderLabel.innerText = "Transponder";
+    formDiv.appendChild(transponderLabel);
+
+    const transponderInput = document.createElement("input");
+    transponderInput.type = "text";
+    transponderInput.inputMode = "numeric";
+    transponderInput.className = "transponder-input";
+    transponderInput.placeholder = "Optional, e.g. 4821337";
+    transponderInput.value = currentUserTransponder;
+    formDiv.appendChild(transponderInput);
+
     race.categories.forEach(cat => {
       const row = document.createElement("div");
       row.className = "btn-row";
@@ -649,19 +657,26 @@ function buildRaceCard(race, myReg) {
       const catName = document.createElement("span");
       catName.style.flex = "1";
       catName.style.fontSize = "0.9rem";
-      catName.innerText = cat.name + (cat.capacity ? ` (max ${cat.capacity})` : "");
+      catName.innerText = cat.name;
 
       const regBtn = document.createElement("button");
       regBtn.className = "btn-primary btn-sm";
       regBtn.innerText = "Register";
       regBtn.onclick = async () => {
+        const transponder = transponderInput.value.trim();
         await setDoc(doc(db, "races", race.id, "registrations", currentUser.uid), {
           uid: currentUser.uid,
           email: currentUser.email,
           name: currentUserName,
           categories: [cat.name],
+          transponder: transponder || null,
           registeredAt: serverTimestamp()
         });
+        // Remember it to prefill the next registration
+        if (transponder && transponder !== currentUserTransponder) {
+          await setDoc(doc(db, "users", currentUser.uid), { transponder }, { merge: true });
+          currentUserTransponder = transponder;
+        }
         await loadRacesView();
       };
 

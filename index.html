@@ -444,8 +444,7 @@ button {
   align-items: center;
 }
 
-.cat-row input[type="text"] { flex: 2; }
-.cat-row input[type="number"] { flex: 1; }
+.cat-row input[type="text"] { flex: 1; }
 
 .cat-row button {
   background: none;
@@ -516,6 +515,22 @@ label input[type="checkbox"] {
   padding: 2px 10px;
   border-radius: 99px;
   margin-left: 6px;
+}
+
+/* ---- Transponder input ---- */
+.field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+input.transponder-input {
+  max-width: 280px;
+  margin: 6px 0 8px;
 }
 
 /* ---- Registered tag ---- */

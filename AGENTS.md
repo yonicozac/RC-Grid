@@ -31,6 +31,7 @@ admins/{uid}
 
 users/{uid}
   name
+  transponder?             // last-used transponder, prefills registration
 users/{uid}/following/{trackId}
   followedAt
 
@@ -43,11 +44,10 @@ tracks/{trackId}
 races/{raceId}
   name, date (YYYY-MM-DD string, no time)
   trackId, trackName (denormalized), trackLat?, trackLng?
-  categories: [{ name, capacity? }]
-  totalCapacity?
+  categories: [{ name }]   // older races may still carry capacity/totalCapacity (unused)
   createdBy, createdAt
 races/{raceId}/registrations/{uid}
-  uid, email, name, categories: string[], registeredAt
+  uid, email, name, categories: string[], transponder?, registeredAt
 ```
 
 ## App flow
@@ -55,7 +55,7 @@ races/{raceId}/registrations/{uid}
 1. Sign in with a magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL).
 2. On first login, the user sets a name in `users/{uid}`.
 3. There are two views:
-   - **Races** (default): races from followed tracks, sorted by date. Register per category.
+   - **Races** (default): races from followed tracks, sorted by date. Register per category, with an optional transponder number.
    - **Tracks**: approved tracks with search, sorted by distance when location is known (location cached in `localStorage` as `rcgrid_location`, cleared on logout). Includes follow (heart), the submit-track form, the admin pending queue, and the owner's "Add Race" panel.
 
 ## Conventions
@@ -70,4 +70,3 @@ races/{raceId}/registrations/{uid}
 
 - `loadRacesView` uses a Firestore `where("trackId", "in", ...)` query, which is capped at 30 values. That breaks if a user follows more than 30 tracks.
 - Magic-link sign-in redirects to production, so testing locally needs the auth URL changed or a sign-in on the live site.
-- Category capacity and `totalCapacity` are displayed but not yet enforced.
