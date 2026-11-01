@@ -125,7 +125,10 @@ onAuthStateChanged(auth, async (user) => {
   showView("races");
 });
 
-logoutBtn.onclick = () => signOut(auth);
+logoutBtn.onclick = () => {
+  localStorage.removeItem("rcgrid_location");
+  signOut(auth);
+};
 
 /* ---------------- Name Setup ---------------- */
 
@@ -221,7 +224,13 @@ async function loadTracksView() {
   const snap = await getDocs(query(collection(db, "tracks"), where("status", "==", "approved")));
   cachedTrackDocs = [];
   snap.forEach(d => cachedTrackDocs.push(d));
-  tracksViewCoords = await getUserLocation();
+  const cached = localStorage.getItem("rcgrid_location");
+  if (cached) {
+    tracksViewCoords = JSON.parse(cached);
+  } else {
+    tracksViewCoords = await getUserLocation();
+    if (tracksViewCoords) localStorage.setItem("rcgrid_location", JSON.stringify(tracksViewCoords));
+  }
   renderTrackList(document.getElementById("trackSearch").value);
 }
 
