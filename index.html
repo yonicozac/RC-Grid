@@ -517,25 +517,35 @@ label input[type="checkbox"] {
 
 .card-header-text { flex: 1; min-width: 0; }
 
-/* ---- Heart button ---- */
-.heart-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  width: 34px;
-  height: 34px;
-  font-size: 0.95rem;
-  line-height: 1;
-  color: #cbd5e1;
+/* ---- Follow button ---- */
+.follow-btn {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  min-width: 100px;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  font-weight: 600;
 }
-.heart-btn:hover { color: var(--accent); border-color: var(--accent); }
-.heart-btn.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.follow-btn:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+
+.follow-btn.following {
+  background: var(--surface);
+  color: var(--text-2);
+  border-color: var(--border-strong);
+  font-weight: 500;
+}
+
+.follow-btn .when-hover { display: none; }
+
+/* Only devices with a real hover get the "Unfollow" preview; taps just toggle */
+@media (hover: hover) {
+  .follow-btn.following:hover {
+    background: #fef2f2;
+    color: var(--danger);
+    border-color: #fecaca;
+  }
+  .follow-btn.following:hover .when-idle { display: none; }
+  .follow-btn.following:hover .when-hover { display: inline; }
 }
 
 /* ---- Distance tag ---- */

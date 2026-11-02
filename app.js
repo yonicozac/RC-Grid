@@ -350,25 +350,30 @@ function buildTrackCard(trackDoc) {
   const div = document.createElement("div");
   div.className = "card";
 
-  // Heart button
-  const heartBtn = document.createElement("button");
-  heartBtn.className = "heart-btn" + (isFollowing ? " active" : "");
-  heartBtn.innerHTML = "&#9829;";
-  heartBtn.title = isFollowing ? "Unfollow" : "Follow";
-  heartBtn.onclick = async () => {
+  // Follow button: following a track shows its races in the Races view
+  const followBtn = document.createElement("button");
+  followBtn.className = "btn-sm follow-btn";
+  const setFollowState = following => {
+    followBtn.classList.toggle("following", following);
+    followBtn.innerHTML = following
+      ? '<span class="when-idle">✓ Following</span><span class="when-hover">Unfollow</span>'
+      : "Follow";
+    followBtn.title = following ? "Stop seeing this track's races" : "See this track's races in Races";
+  };
+  setFollowState(isFollowing);
+  followBtn.onclick = async () => {
+    followBtn.disabled = true;
     if (followedTrackIds.has(id)) {
       await deleteDoc(doc(db, "users", currentUser.uid, "following", id));
       followedTrackIds.delete(id);
-      heartBtn.classList.remove("active");
-      heartBtn.title = "Follow";
     } else {
       await setDoc(doc(db, "users", currentUser.uid, "following", id), {
         followedAt: serverTimestamp()
       });
       followedTrackIds.add(id);
-      heartBtn.classList.add("active");
-      heartBtn.title = "Unfollow";
     }
+    setFollowState(followedTrackIds.has(id));
+    followBtn.disabled = false;
   };
 
   const headerText = document.createElement("div");
@@ -386,7 +391,7 @@ function buildTrackCard(trackDoc) {
   const cardHeader = document.createElement("div");
   cardHeader.className = "card-header";
   cardHeader.appendChild(headerText);
-  cardHeader.appendChild(heartBtn);
+  cardHeader.appendChild(followBtn);
   div.appendChild(cardHeader);
 
   if (isOwner || isAdmin) {
