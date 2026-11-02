@@ -71,5 +71,8 @@ races/{raceId}/registrations/{uid}
 
 ## Gotchas
 
+- Firestore is created with `initializeFirestore(app, { experimentalForceLongPolling: true })`. On iOS Safari the default streaming connection often stalls, and the SDK's auto-detection made loads take 10–30s. Don't switch back to `getFirestore()` without testing on an iPhone.
+- Startup reads (profile, admin check, follows) run in parallel; views await `startupDataReady()` and show "Loading…", or an error with Retry. Non-admins can't read `admins/`, so a failed admin read means "not admin".
+
 - `loadRacesView` uses a Firestore `where("trackId", "in", ...)` query, which is capped at 30 values. That breaks if a user follows more than 30 tracks.
 - Magic-link sign-in redirects to production, so testing locally needs the auth URL changed or a sign-in on the live site.

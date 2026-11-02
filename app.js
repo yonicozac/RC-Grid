@@ -14,7 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 import {
-  getFirestore,
+  initializeFirestore,
   collection,
   getDocs,
   addDoc,
@@ -39,7 +39,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// iOS Safari often can't hold Firestore's streaming connection (Private Relay, content
+// blockers, some networks); auto-detecting that took 10–30s per load, so always long-poll.
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 await setPersistence(auth, browserLocalPersistence);
 
@@ -50,6 +52,8 @@ let currentUserName = null;
 let currentUserTransponder = "";
 let isAdmin = false;
 let followedTrackIds = new Set();
+let followsReady = null;   // promise for loadFollowedTracks(), started at sign-in
+let adminReady = null;     // promise for the admin check (never rejects)
 let cachedTrackDocs = [];
 let tracksViewCoords = null;
 
@@ -179,7 +183,17 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   authArea.classList.add("hidden");
 
-  const userDoc = await getDoc(doc(db, "users", user.uid));
+  // Profile, admin check and follows don't depend on each other: start them together
+  startBackgroundLoads();
+
+  let userDoc;
+  try {
+    userDoc = await getDoc(doc(db, "users", user.uid));
+  } catch (err) {
+    console.error(err);
+    showStartupError();
+    return;
+  }
   currentUserName = userDoc.exists() ? userDoc.data().name : null;
   currentUserTransponder = userDoc.exists() ? userDoc.data().transponder ?? "" : "";
 
@@ -191,16 +205,36 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  enterApp();
+});
+
+function startBackgroundLoads() {
+  followsReady = loadFollowedTracks();
+  followsReady.catch(() => {});   // awaited (and reported) by the views
+  // Non-admins aren't allowed to read admins/, so a failed read just means "not admin"
+  adminReady = getDoc(doc(db, "admins", currentUser.uid))
+    .then(d => d.exists(), () => false)
+    .then(admin => {
+      isAdmin = admin;
+      if (admin) refreshPendingBadge().catch(console.error);
+    });
+}
+
+// Show the app shell right away; each view waits for what it needs and shows "Loading…"
+function enterApp() {
   nameSetupArea.classList.add("hidden");
   appArea.classList.remove("hidden");
-
-  const adminDoc = await getDoc(doc(db, "admins", user.uid));
-  isAdmin = adminDoc.exists();
-  if (isAdmin) await refreshPendingBadge();
-
-  await loadFollowedTracks();
   showView("races");
-});
+}
+
+function showStartupError() {
+  loadingArea.classList.remove("hidden");
+  loadingArea.innerHTML = `
+    <div class="empty-state">
+      <p>Couldn't connect. Check your connection and try again.</p>
+      <button class="btn-primary btn-sm" onclick="location.reload()">Retry</button>
+    </div>`;
+}
 
 logoutBtn.onclick = () => {
   localStorage.removeItem("rcgrid_location");
@@ -216,15 +250,7 @@ document.getElementById("saveNameBtn").onclick = async () => {
   await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
   currentUserName = name;
 
-  nameSetupArea.classList.add("hidden");
-  appArea.classList.remove("hidden");
-
-  const adminDoc = await getDoc(doc(db, "admins", currentUser.uid));
-  isAdmin = adminDoc.exists();
-  if (isAdmin) await refreshPendingBadge();
-
-  await loadFollowedTracks();
-  showView("races");
+  enterApp();
 };
 
 /* ---------------- Navigation ---------------- */
@@ -295,6 +321,34 @@ function distanceLabel(track) {
   return km < 1 ? "< 1 km" : `${Math.round(km).toLocaleString("en-US")} km`;
 }
 
+function showLoading(container, text) {
+  container.innerHTML = `<div class="loading-state">${text}</div>`;
+}
+
+function showLoadError(container, what, retry) {
+  container.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "empty-state";
+  box.innerHTML = `<p>Couldn't load ${what}. Check your connection and try again.</p>`;
+  const retryBtn = document.createElement("button");
+  retryBtn.className = "btn-primary btn-sm";
+  retryBtn.innerText = "Retry";
+  retryBtn.onclick = retry;
+  box.appendChild(retryBtn);
+  container.appendChild(box);
+}
+
+// Wait for the sign-in loads; if follows failed earlier, fetch them again
+async function startupDataReady() {
+  try {
+    await followsReady;
+  } catch {
+    followsReady = loadFollowedTracks();
+    await followsReady;
+  }
+  await adminReady;
+}
+
 /* ---------------- Follow State ---------------- */
 
 async function loadFollowedTracks() {
@@ -306,7 +360,17 @@ async function loadFollowedTracks() {
 /* ---------------- Tracks View ---------------- */
 
 async function loadTracksView() {
-  tracksContainer.innerHTML = "";
+  showLoading(tracksContainer, "Loading tracks…");
+  try {
+    await renderTracks();
+  } catch (err) {
+    console.error(err);
+    showLoadError(tracksContainer, "tracks", loadTracksView);
+  }
+}
+
+async function renderTracks() {
+  await startupDataReady();
 
   if (isAdmin) {
     await loadPendingTracks();
@@ -697,7 +761,17 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 /* ---------------- Races View ---------------- */
 
 async function loadRacesView() {
-  racesContainer.innerHTML = "";
+  showLoading(racesContainer, "Loading races…");
+  try {
+    await renderRaces();
+  } catch (err) {
+    console.error(err);
+    showLoadError(racesContainer, "races", loadRacesView);
+  }
+}
+
+async function renderRaces() {
+  await startupDataReady();
 
   if (followedTrackIds.size === 0) {
     racesContainer.innerHTML = '<div class="empty-state"><p>Follow some tracks to see their races here.</p></div>';
@@ -740,6 +814,7 @@ async function loadRacesView() {
   const upcoming = races.filter(r => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const past = races.filter(r => r.date < today).sort((a, b) => b.date.localeCompare(a.date));
 
+  racesContainer.innerHTML = "";
   if (upcoming.length === 0) {
     racesContainer.innerHTML = '<div class="empty-state"><p>No upcoming races for your followed tracks.</p></div>';
   }
