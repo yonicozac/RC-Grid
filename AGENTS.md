@@ -5,7 +5,7 @@ Lightweight RC race management app: racers follow tracks and register for races,
 ## Stack
 
 - Plain HTML + vanilla JS (one ES module, no framework, no build step, no package.json)
-- Firebase v10.8.0, loaded from the gstatic CDN: Auth (email magic link) and Firestore
+- Firebase v10.8.0, loaded from the gstatic CDN: Auth (Google sign-in + email magic link fallback) and Firestore
 - Hosted on GitHub Pages: https://yonicozac.github.io/RC-Grid/ (deploys from `main`)
 - Firebase project: `rc-grid-faae7`
 
@@ -54,8 +54,8 @@ races/{raceId}/registrations/{uid}
 
 ## App flow
 
-1. Sign in with a magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL).
-2. On first login, the user sets a name in `users/{uid}`.
+1. Sign in with Google (`signInWithPopup`, the primary option) or an email magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL). Magic links are capped at 5 emails/day on the Spark plan and break when the link opens in a different/private browser, which is why Google is primary.
+2. On first login, the user sets a name in `users/{uid}` (prefilled from the Google account name when available).
 3. There are two views:
    - **Races** (default): upcoming races (date ≥ today, local time) from followed tracks, soonest first. Past races sit in a collapsed, low-key "Past races" section (most recent first, registration closed), shown only when there are any. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers. Anyone can download the list as a RaceLyx-compatible CSV (`Name,Class,Transponder`, one row per driver per class, UTF-8 with BOM).
    - **Tracks**: approved tracks with search, sorted by distance when location is known (location cached in `localStorage` as `rcgrid_location`, cleared on logout). Includes a Follow / ✓ Following button (text, not an icon: iOS renders ♥ as a red emoji), the submit-track form, the admin pending queue, and the owner's "Add Race" panel.

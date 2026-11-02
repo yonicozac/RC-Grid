@@ -8,6 +8,8 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
@@ -59,6 +61,7 @@ const nameSetupArea = document.getElementById("nameSetupArea");
 const appArea = document.getElementById("appArea");
 const emailInput = document.getElementById("emailInput");
 const sendLinkBtn = document.getElementById("sendLinkBtn");
+const googleSignInBtn = document.getElementById("googleSignInBtn");
 const loginStatus = document.getElementById("loginStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 const navTracks = document.getElementById("navTracks");
@@ -77,6 +80,35 @@ const createTrackForm = document.getElementById("createTrackForm");
 const actionCodeSettings = {
   url: "https://yonicozac.github.io/RC-Grid/",
   handleCodeInApp: true
+};
+
+// Google sign-in: happens in a popup in the same tab, so no email and no cross-browser hop
+const googleSignInErrors = {
+  "auth/popup-blocked": "Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.",
+  "auth/account-exists-with-different-credential": "This email already signs in with an email link. Use the email option below.",
+  "auth/network-request-failed": "Couldn't reach the server. Check your connection and try again.",
+  "auth/unauthorized-domain": "Google sign-in isn't enabled for this address yet.",
+  "auth/operation-not-allowed": "Google sign-in isn't enabled yet."
+};
+
+googleSignInBtn.onclick = async () => {
+  googleSignInBtn.disabled = true;
+  loginStatus.classList.remove("error");
+  loginStatus.innerText = "";
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    // onAuthStateChanged takes it from here
+  } catch (err) {
+    // Closing the popup isn't an error worth showing
+    if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
+      console.error(err);
+      loginStatus.classList.add("error");
+      loginStatus.innerText = googleSignInErrors[err.code] ??
+        "Google sign-in didn't work here. If you opened this page from an email or chat app, open it in Safari or Chrome instead.";
+    }
+  } finally {
+    googleSignInBtn.disabled = false;
+  }
 };
 
 const sendLinkErrors = {
@@ -153,6 +185,8 @@ onAuthStateChanged(auth, async (user) => {
 
   if (!currentUserName) {
     nameSetupArea.classList.remove("hidden");
+    // Google accounts come with a name; suggest it
+    document.getElementById("nameInput").value = user.displayName ?? "";
     appArea.classList.add("hidden");
     return;
   }
