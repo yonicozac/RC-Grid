@@ -79,10 +79,32 @@ const actionCodeSettings = {
   handleCodeInApp: true
 };
 
+const sendLinkErrors = {
+  "auth/quota-exceeded": "Too many sign-in emails were sent today. Please try again tomorrow.",
+  "auth/invalid-email": "That email address doesn't look right. Please check it and try again.",
+  "auth/missing-email": "Enter your email",
+  "auth/network-request-failed": "Couldn't reach the server. Check your connection and try again.",
+  "auth/too-many-requests": "Too many attempts. Please wait a few minutes and try again."
+};
+
 sendLinkBtn.onclick = async () => {
   const email = emailInput.value.trim();
   if (!email) { alert("Enter your email"); return; }
-  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+
+  sendLinkBtn.disabled = true;
+  loginStatus.classList.remove("error");
+  loginStatus.innerText = "Sending…";
+  try {
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+  } catch (err) {
+    console.error(err);
+    loginStatus.classList.add("error");
+    loginStatus.innerText = sendLinkErrors[err.code] ?? "Couldn't send the login link. Please try again later.";
+    return;
+  } finally {
+    sendLinkBtn.disabled = false;
+  }
+
   localStorage.setItem("emailForSignIn", email);
   loginStatus.innerHTML = `Login link sent to <b>${esc(email)}</b>.<br>
     Can't find it? Check your spam folder. It comes from
