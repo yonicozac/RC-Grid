@@ -711,10 +711,15 @@ label input[type="checkbox"] {
 }
 
 /* ---- Race card categories + drivers ---- */
-.cat-line {
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+.cat-list {
+  margin-top: 4px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
+
+.cat-line { padding: 10px 14px; }
+.cat-line + .cat-line { border-top: 1px solid var(--border); }
 
 .cat-head { align-items: center; margin-top: 0; }
 
@@ -760,11 +765,7 @@ label input[type="checkbox"] {
   font-size: 0.82rem;
 }
 
-.card-footer {
-  margin-top: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
+.card-footer { margin-top: 14px; }
 .card-footer .delete-race-btn,
 .delete-track-btn { margin-left: auto; }
 

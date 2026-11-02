@@ -1016,6 +1016,11 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
     </div>
   `;
 
+  // Categories sit in their own inset pane, apart from the title and footer
+  const catList = document.createElement("div");
+  catList.className = "cat-list";
+  div.appendChild(catList);
+
   race.categories.forEach(cat => {
     const myEntry = myEntries.find(e => e.category === cat.name);
 
@@ -1041,7 +1046,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
     // Registration is closed once the race date has passed
     if (isPast) {
-      div.appendChild(row);
+      catList.appendChild(row);
       return;
     }
 
@@ -1109,7 +1114,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
       };
     }
 
-    div.appendChild(row);
+    catList.appendChild(row);
   });
 
   const footer = document.createElement("div");
