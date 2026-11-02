@@ -166,19 +166,124 @@ nav button.active::after { opacity: 1; }
   text-align: center;
 }
 
-#logoutBtn {
+/* ---- Profile menu ---- */
+.profile-menu {
   margin-left: auto;
+  position: relative;
+}
+
+#profileBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-2);
+  font-size: 0.8rem;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  max-width: 220px;
+}
+#profileBtn:hover,
+#profileBtn[aria-expanded="true"] { border-color: var(--border-strong); color: var(--ink); }
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
   font-family: var(--mono);
   font-size: 0.72rem;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 6px 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret { font-size: 0.7rem; color: var(--text-muted); }
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 170px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 200;
+}
+
+.dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 0.85rem;
   border-radius: var(--radius-sm);
 }
-#logoutBtn:hover { color: var(--ink); border-color: var(--border-strong); }
+.dropdown button:hover { background: var(--surface-2); }
+.dropdown button.danger { color: var(--danger); }
+.dropdown button.danger:hover { background: #fef2f2; }
+
+/* ---- Modal ---- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.modal-card h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.modal-card .field-label {
+  display: block;
+  margin: 10px 0 2px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.profile-email {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-2);
+  padding: 6px 0;
+  word-break: break-all;
+}
 
 /* ---- Page wrapper ---- */
 .page {
@@ -813,6 +918,8 @@ label input[type="checkbox"] {
 
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
+  .profile-name { display: none; }
+  #profileBtn { padding: 4px 8px 4px 4px; }
   .page { padding: 28px 16px 64px; }
   .auth-card { padding: 28px 22px; }
   #topbar { padding: 0 16px; }
@@ -879,7 +986,17 @@ label input[type="checkbox"] {
       <button id="navRaces">Races</button>
       <button id="navTracks">Tracks<span id="pendingBadge" class="nav-badge hidden"></span></button>
     </nav>
-    <button id="logoutBtn">Logout</button>
+    <div class="profile-menu">
+      <button id="profileBtn" aria-haspopup="menu" aria-expanded="false" title="Account">
+        <span class="avatar" id="profileInitial"></span>
+        <span class="profile-name" id="profileName"></span>
+        <span class="caret">▾</span>
+      </button>
+      <div id="profileDropdown" class="dropdown hidden" role="menu">
+        <button id="openProfileBtn" role="menuitem">Profile</button>
+        <button id="logoutBtn" role="menuitem" class="danger">Log out</button>
+      </div>
+    </div>
   </div>
 
   <div class="page">
@@ -925,6 +1042,22 @@ label input[type="checkbox"] {
       <div id="racesContainer"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- Profile dialog -->
+<div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+  <div class="modal-card">
+    <h3 id="profileTitle">Profile</h3>
+    <label class="field-label" for="profileNameInput">Name</label>
+    <input id="profileNameInput" type="text" placeholder="Your name">
+    <label class="field-label">Email</label>
+    <div id="profileEmail" class="profile-email"></div>
+    <div class="btn-row">
+      <button id="saveProfileBtn" class="btn-primary">Save</button>
+      <button id="cancelProfileBtn" class="btn-secondary">Cancel</button>
+    </div>
+    <p class="status-msg" id="profileStatus"></p>
   </div>
 </div>
 

@@ -224,6 +224,7 @@ function startBackgroundLoads() {
 function enterApp() {
   nameSetupArea.classList.add("hidden");
   appArea.classList.remove("hidden");
+  updateProfileButton();
   showView("races");
 }
 
@@ -237,9 +238,86 @@ function showStartupError() {
 }
 
 logoutBtn.onclick = () => {
+  closeProfileMenu();
   localStorage.removeItem("rcgrid_location");
   signOut(auth);
 };
+
+/* ---------------- Profile Menu ---------------- */
+
+const profileBtn = document.getElementById("profileBtn");
+const profileDropdown = document.getElementById("profileDropdown");
+const profileModal = document.getElementById("profileModal");
+const profileNameInput = document.getElementById("profileNameInput");
+const profileStatus = document.getElementById("profileStatus");
+
+function updateProfileButton() {
+  const name = currentUserName || currentUser?.email || "";
+  document.getElementById("profileInitial").innerText = name.trim().charAt(0).toUpperCase() || "?";
+  document.getElementById("profileName").innerText = currentUserName || "";
+}
+
+function closeProfileMenu() {
+  profileDropdown.classList.add("hidden");
+  profileBtn.setAttribute("aria-expanded", "false");
+}
+
+profileBtn.onclick = e => {
+  e.stopPropagation();
+  const open = profileDropdown.classList.toggle("hidden") === false;
+  profileBtn.setAttribute("aria-expanded", String(open));
+};
+
+// Close the menu on any outside click or Escape
+document.addEventListener("click", e => {
+  if (!profileDropdown.contains(e.target)) closeProfileMenu();
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  closeProfileMenu();
+  profileModal.classList.add("hidden");
+});
+
+document.getElementById("openProfileBtn").onclick = () => {
+  closeProfileMenu();
+  profileNameInput.value = currentUserName ?? "";
+  document.getElementById("profileEmail").innerText = currentUser.email ?? "";
+  profileStatus.classList.remove("error");
+  profileStatus.innerText = "";
+  profileModal.classList.remove("hidden");
+  profileNameInput.focus();
+};
+
+document.getElementById("cancelProfileBtn").onclick = () => profileModal.classList.add("hidden");
+profileModal.onclick = e => {
+  if (e.target === profileModal) profileModal.classList.add("hidden");
+};
+
+const saveProfile = async () => {
+  const name = profileNameInput.value.trim();
+  if (!name) {
+    profileStatus.classList.add("error");
+    profileStatus.innerText = "Name can't be empty.";
+    return;
+  }
+  const saveBtn = document.getElementById("saveProfileBtn");
+  saveBtn.disabled = true;
+  try {
+    await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
+  } catch (err) {
+    console.error(err);
+    profileStatus.classList.add("error");
+    profileStatus.innerText = "Couldn't save. Please try again.";
+    return;
+  } finally {
+    saveBtn.disabled = false;
+  }
+  currentUserName = name;
+  updateProfileButton();
+  profileModal.classList.add("hidden");
+};
+document.getElementById("saveProfileBtn").onclick = saveProfile;
+profileNameInput.onkeydown = e => { if (e.key === "Enter") saveProfile(); };
 
 /* ---------------- Name Setup ---------------- */
 
