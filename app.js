@@ -960,6 +960,16 @@ async function deleteRace(raceId, regs) {
   await batch.commit();
 }
 
+// "dana  LEVI" -> "Dana Levi", "noa ben-david" -> "Noa Ben-David", so timing software
+// doesn't treat differently-cased entries as different drivers
+function normalizeName(name) {
+  return String(name ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/(^|[\s-])(\S)/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
 // RaceLyx-compatible driver import: one row per driver per class
 // (https://racelyx.com/learn/director-import-drivers-csv/)
 function driversCsv(byCategory) {
@@ -969,7 +979,7 @@ function driversCsv(byCategory) {
   };
   const rows = [["Name", "Class", "Transponder"]];
   byCategory.forEach((drivers, category) => {
-    drivers.forEach(d => rows.push([d.name || "", category, d.transponder || ""]));
+    drivers.forEach(d => rows.push([normalizeName(d.name), category, d.transponder || ""]));
   });
   return rows.map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }
