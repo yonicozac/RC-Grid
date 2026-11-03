@@ -833,6 +833,22 @@ label input[type="checkbox"] {
   border: 1px solid var(--success-border);
 }
 
+/* "✓ Registered ▾": the registered state is also the way to unregister */
+.reg-menu { position: relative; }
+.reg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success-text);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  white-space: nowrap;
+}
+.reg-btn:hover,
+.reg-btn[aria-expanded="true"] { border-color: var(--success-text); }
+.reg-btn .caret { color: inherit; opacity: 0.7; }
+.reg-menu .dropdown { z-index: 20; min-width: 140px; }
+
 .reg-form {
   display: flex;
   flex-wrap: wrap;
@@ -1016,7 +1032,7 @@ label input[type="checkbox"] {
   .card { padding: 16px; }
   .section-header h2 { font-size: 1.45rem; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .cat-head .btn-primary, .cat-head .btn-ghost { margin-inline-start: auto; }
+  .cat-head .btn-primary, .cat-head .btn-ghost, .cat-head .reg-menu { margin-inline-start: auto; }
   .reg-form input[type="text"] { flex: 1 0 100%; max-width: none; }
 }
 </style>

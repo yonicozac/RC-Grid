@@ -992,6 +992,55 @@ function downloadCsv(filename, text) {
   URL.revokeObjectURL(url);
 }
 
+// Green "✓ Registered ▾" button; its menu holds Unregister
+function buildRegisteredMenu(onUnregister) {
+  const wrap = document.createElement("div");
+  wrap.className = "reg-menu";
+
+  const btn = document.createElement("button");
+  btn.className = "btn-sm reg-btn";
+  btn.setAttribute("aria-haspopup", "menu");
+  btn.setAttribute("aria-expanded", "false");
+  btn.innerHTML = `${t("registered")}<span class="caret">▾</span>`;
+
+  const menu = document.createElement("div");
+  menu.className = "dropdown hidden";
+  menu.setAttribute("role", "menu");
+
+  const unregisterBtn = document.createElement("button");
+  unregisterBtn.className = "danger";
+  unregisterBtn.setAttribute("role", "menuitem");
+  unregisterBtn.innerText = t("unregister");
+  unregisterBtn.onclick = () => {
+    closeRegMenus();
+    onUnregister();
+  };
+  menu.appendChild(unregisterBtn);
+
+  btn.onclick = e => {
+    e.stopPropagation();
+    const wasOpen = !menu.classList.contains("hidden");
+    closeRegMenus();
+    if (!wasOpen) {
+      menu.classList.remove("hidden");
+      btn.setAttribute("aria-expanded", "true");
+    }
+  };
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  return wrap;
+}
+
+function closeRegMenus() {
+  document.querySelectorAll(".reg-menu .dropdown:not(.hidden)").forEach(menu => {
+    menu.classList.add("hidden");
+    menu.previousElementSibling.setAttribute("aria-expanded", "false");
+  });
+}
+document.addEventListener("click", closeRegMenus);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeRegMenus(); });
+
 // Race manager action: drop one category entry, or the whole registration if it was the last
 async function removeDriverEntry(raceId, reg, category) {
   const ref = doc(db, "races", raceId, "registrations", reg.uid);
@@ -1040,33 +1089,32 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
     catName.innerHTML = `${esc(cat.name)}<div class="cat-meta">${t("drivers", byCategory.get(cat.name).length)}</div>`;
     head.appendChild(catName);
 
-    if (myEntry) {
-      const tag = document.createElement("span");
-      tag.className = "reg-tag";
-      tag.innerText = t("registered");
-      head.appendChild(tag);
-    }
-
     row.appendChild(head);
 
-    // Registration is closed once the race date has passed
+    // Registration is closed once the race date has passed: just show the status
     if (isPast) {
+      if (myEntry) {
+        const tag = document.createElement("span");
+        tag.className = "reg-tag";
+        tag.innerText = t("registered");
+        head.appendChild(tag);
+      }
       catList.appendChild(row);
       return;
     }
 
-    const actionBtn = document.createElement("button");
-    actionBtn.className = myEntry ? "btn-ghost btn-sm" : "btn-primary btn-sm";
-    actionBtn.innerText = t(myEntry ? "unregister" : "register");
-    head.appendChild(actionBtn);
-
     if (myEntry) {
-      actionBtn.onclick = async () => {
+      head.appendChild(buildRegisteredMenu(async () => {
         if (!confirm(t("unregisterConfirm", cat.name))) return;
         await saveMyEntries(race, myReg, myEntries.filter(e => e.category !== cat.name));
         await loadRacesView();
-      };
+      }));
     } else {
+      const actionBtn = document.createElement("button");
+      actionBtn.className = "btn-primary btn-sm";
+      actionBtn.innerText = t("register");
+      head.appendChild(actionBtn);
+
       // Inline form: ask for this category's transponder before registering
       const form = document.createElement("div");
       form.className = "reg-form hidden";
