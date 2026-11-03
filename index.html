@@ -849,6 +849,14 @@ label input[type="checkbox"] {
 .reg-btn .caret { color: inherit; opacity: 0.7; }
 .reg-menu .dropdown { z-index: 20; min-width: 140px; }
 
+/* Register and Registered share one width so rows line up whatever your status
+   (fits the longest label, English "✓ Registered ▾") */
+.cat-head > .btn-primary,
+.reg-btn {
+  min-width: 7.5rem;
+  justify-content: center;
+}
+
 .reg-form {
   display: flex;
   flex-wrap: wrap;
