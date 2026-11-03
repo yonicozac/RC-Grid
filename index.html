@@ -289,12 +289,30 @@ nav button.active::after { opacity: 1; }
 .page {
   max-width: 820px;
   margin: 0 auto;
-  padding: 48px 24px 96px;
+  padding: 48px 24px 48px;
 }
+
+/* ---- Footer ---- */
+.site-footer {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.site-footer a {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.site-footer a:hover { color: var(--accent); }
 
 /* ---- Auth / Name setup ---- */
 .auth-wrap {
-  min-height: 100vh;
+  min-height: calc(100vh - 56px); /* leave room for the footer */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1045,6 +1063,10 @@ label input[type="checkbox"] {
 
   </div>
 </div>
+
+<footer class="site-footer">
+  <span>Questions or feedback? <a href="mailto:tracery.back.3t@icloud.com?subject=RC%20Grid%20support">Contact support</a></span>
+</footer>
 
 <!-- Profile dialog -->
 <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
