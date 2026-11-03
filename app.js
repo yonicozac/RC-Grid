@@ -485,14 +485,18 @@ function renderTrackList(searchTerm = "") {
     return;
   }
 
-  if (tracksViewCoords) {
-    filtered.sort((a, b) => {
-      const ta = a.data(), tb = b.data();
-      const da = ta.lat != null ? haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, ta.lat, ta.lng) : Infinity;
-      const db_ = tb.lat != null ? haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, tb.lat, tb.lng) : Infinity;
-      return da - db_;
-    });
-  }
+  // Your own tracks first; within each group nearest first (no location last), then by name
+  const distance = track => tracksViewCoords && track.lat != null
+    ? haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, track.lat, track.lng)
+    : Infinity;
+  filtered.sort((a, b) => {
+    const ta = a.data(), tb = b.data();
+    const ownA = ta.createdBy === currentUser.uid, ownB = tb.createdBy === currentUser.uid;
+    if (ownA !== ownB) return ownA ? -1 : 1;
+    const da = distance(ta), db_ = distance(tb);
+    if (da !== db_) return da - db_;
+    return ta.name.localeCompare(tb.name);
+  });
 
   filtered.forEach(d => tracksContainer.appendChild(buildTrackCard(d)));
 }
