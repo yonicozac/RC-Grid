@@ -84,6 +84,7 @@ const strings = {
     followTitle: "See this track's races in Races",
     unfollowTitle: "Stop seeing this track's races",
     website: "Website",
+    yourTrack: "Your track",
     deleteTrack: "Delete track",
     deleteTrackConfirm: (name, raceCount) => `Delete track "${name}"?` + (raceCount > 0
       ? `\n\nThis also deletes its ${raceCount} race${raceCount === 1 ? "" : "s"} and all their registrations.`
@@ -203,6 +204,7 @@ const strings = {
     followTitle: "הצגת התחרויות של המסלול בעמוד התחרויות",
     unfollowTitle: "הפסקת הצגת התחרויות של המסלול",
     website: "אתר",
+    yourTrack: "המסלול שלך",
     deleteTrack: "מחיקת מסלול",
     deleteTrackConfirm: (name, raceCount) => `למחוק את המסלול "${name}"?` + (raceCount > 0
       ? `\n\nפעולה זו תמחק גם ${raceCount === 1 ? "את התחרות שלו" : `את ${raceCount} התחרויות שלו`} ואת כל ההרשמות.`
@@ -322,6 +324,7 @@ const strings = {
     followTitle: "Voir les courses de cette piste dans Courses",
     unfollowTitle: "Ne plus voir les courses de cette piste",
     website: "Site web",
+    yourTrack: "Votre piste",
     deleteTrack: "Supprimer la piste",
     deleteTrackConfirm: (name, raceCount) => `Supprimer la piste « ${name} » ?` + (raceCount > 0
       ? `\n\nCela supprime aussi ${raceCount === 1 ? "sa course" : `ses ${raceCount} courses`} et toutes leurs inscriptions.`

@@ -530,7 +530,7 @@ function buildTrackCard(trackDoc) {
   const href = safeHref(track.website);
 
   const div = document.createElement("div");
-  div.className = "card";
+  div.className = isOwner ? "card owned" : "card";
 
   // Follow button: following a track shows its races in the Races view
   const followBtn = document.createElement("button");
@@ -561,7 +561,7 @@ function buildTrackCard(trackDoc) {
   const headerText = document.createElement("div");
   headerText.className = "card-header-text";
   headerText.innerHTML = `
-    <h3>${esc(track.name)}</h3>
+    <h3>${isOwner ? `<span class="owner-star" title="${t("yourTrack")}" aria-label="${t("yourTrack")}">★</span>` : ""}${esc(track.name)}</h3>
     <div class="meta">
       ${esc(track.location)}
       ${distanceLabel(track) ? ` · ${distanceLabel(track)}` : ""}
