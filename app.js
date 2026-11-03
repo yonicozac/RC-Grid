@@ -30,6 +30,8 @@ import {
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+import { lang, isRtl, t, formatDate, formatNumber } from "./i18n.js";
+
 /* ---------------- Firebase Config ---------------- */
 
 const firebaseConfig = {
@@ -40,6 +42,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+// Google's sign-in popup and the sign-in email follow the app's language
+auth.languageCode = lang;
 // iOS Safari often can't hold Firestore's streaming connection (Private Relay, content
 // blockers, some networks); auto-detecting that took 10–30s per load, so always long-poll.
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
@@ -89,11 +93,11 @@ const actionCodeSettings = {
 
 // Google sign-in: happens in a popup in the same tab, so no email and no cross-browser hop
 const googleSignInErrors = {
-  "auth/popup-blocked": "Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.",
-  "auth/account-exists-with-different-credential": "This email already signs in with an email link. Use the email option below.",
-  "auth/network-request-failed": "Couldn't reach the server. Check your connection and try again.",
-  "auth/unauthorized-domain": "Google sign-in isn't enabled for this address yet.",
-  "auth/operation-not-allowed": "Google sign-in isn't enabled yet."
+  "auth/popup-blocked": "popupBlocked",
+  "auth/account-exists-with-different-credential": "accountExists",
+  "auth/network-request-failed": "networkError",
+  "auth/unauthorized-domain": "unauthorizedDomain",
+  "auth/operation-not-allowed": "googleNotEnabled"
 };
 
 googleSignInBtn.onclick = async () => {
@@ -108,8 +112,7 @@ googleSignInBtn.onclick = async () => {
     if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
       console.error(err);
       loginStatus.classList.add("error");
-      loginStatus.innerText = googleSignInErrors[err.code] ??
-        "Google sign-in didn't work here. If you opened this page from an email or chat app, open it in Safari or Chrome instead.";
+      loginStatus.innerText = t(googleSignInErrors[err.code] ?? "googleFailed");
     }
   } finally {
     googleSignInBtn.disabled = false;
@@ -117,49 +120,47 @@ googleSignInBtn.onclick = async () => {
 };
 
 const sendLinkErrors = {
-  "auth/quota-exceeded": "Too many sign-in emails were sent today. Please try again tomorrow.",
-  "auth/invalid-email": "That email address doesn't look right. Please check it and try again.",
-  "auth/missing-email": "Enter your email",
-  "auth/network-request-failed": "Couldn't reach the server. Check your connection and try again.",
-  "auth/too-many-requests": "Too many attempts. Please wait a few minutes and try again."
+  "auth/quota-exceeded": "quotaExceeded",
+  "auth/invalid-email": "invalidEmail",
+  "auth/missing-email": "enterEmail",
+  "auth/network-request-failed": "networkError",
+  "auth/too-many-requests": "tooManyRequests"
 };
 
 sendLinkBtn.onclick = async () => {
   const email = emailInput.value.trim();
-  if (!email) { alert("Enter your email"); return; }
+  if (!email) { alert(t("enterEmail")); return; }
 
   sendLinkBtn.disabled = true;
   loginStatus.classList.remove("error");
-  loginStatus.innerText = "Sending…";
+  loginStatus.innerText = t("sending");
   try {
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
   } catch (err) {
     console.error(err);
     loginStatus.classList.add("error");
-    loginStatus.innerText = sendLinkErrors[err.code] ?? "Couldn't send the login link. Please try again later.";
+    loginStatus.innerText = t(sendLinkErrors[err.code] ?? "sendFailed");
     return;
   } finally {
     sendLinkBtn.disabled = false;
   }
 
   localStorage.setItem("emailForSignIn", email);
-  loginStatus.innerHTML = `Login link sent to <b>${esc(email)}</b>.<br>
-    Can't find it? Check your spam folder. It comes from
-    <span class="sender">noreply@${firebaseConfig.authDomain}</span>`;
+  loginStatus.innerHTML = t("linkSent", esc(email), `noreply@${firebaseConfig.authDomain}`);
 };
 
 if (isSignInWithEmailLink(auth, window.location.href)) {
   // Skip if a saved session already exists (e.g. reloading a used link)
   await auth.authStateReady();
   if (!auth.currentUser) {
-    const email = localStorage.getItem("emailForSignIn") || prompt("Confirm your email");
+    const email = localStorage.getItem("emailForSignIn") || prompt(t("confirmEmail"));
     if (email) {
       try {
         await signInWithEmailLink(auth, email, window.location.href);
         localStorage.removeItem("emailForSignIn");
       } catch (err) {
         console.error(err);
-        loginStatus.innerText = "This login link is invalid or has expired. Please request a new one.";
+        loginStatus.innerText = t("linkInvalid");
       }
     }
   }
@@ -233,8 +234,8 @@ function showStartupError() {
   loadingArea.classList.remove("hidden");
   loadingArea.innerHTML = `
     <div class="empty-state">
-      <p>Couldn't connect. Check your connection and try again.</p>
-      <button class="btn-primary btn-sm" onclick="location.reload()">Retry</button>
+      <p>${t("connectError")}</p>
+      <button class="btn-primary btn-sm" onclick="location.reload()">${t("retry")}</button>
     </div>`;
 }
 
@@ -298,7 +299,7 @@ const saveProfile = async () => {
   const name = profileNameInput.value.trim();
   if (!name) {
     profileStatus.classList.add("error");
-    profileStatus.innerText = "Name can't be empty.";
+    profileStatus.innerText = t("nameEmpty");
     return;
   }
   const saveBtn = document.getElementById("saveProfileBtn");
@@ -308,7 +309,7 @@ const saveProfile = async () => {
   } catch (err) {
     console.error(err);
     profileStatus.classList.add("error");
-    profileStatus.innerText = "Couldn't save. Please try again.";
+    profileStatus.innerText = t("saveFailed");
     return;
   } finally {
     saveBtn.disabled = false;
@@ -324,7 +325,7 @@ profileNameInput.onkeydown = e => { if (e.key === "Enter") saveProfile(); };
 
 document.getElementById("saveNameBtn").onclick = async () => {
   const name = document.getElementById("nameInput").value.trim();
-  if (!name) { alert("Please enter your name"); return; }
+  if (!name) { alert(t("enterName")); return; }
 
   await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
   currentUserName = name;
@@ -389,7 +390,7 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 
 function setPendingBadge(count) {
   pendingBadge.innerText = count;
-  pendingBadge.title = `${count} track${count === 1 ? "" : "s"} awaiting approval`;
+  pendingBadge.title = t("pendingTitle", count);
   pendingBadge.classList.toggle("hidden", count === 0);
 }
 
@@ -397,21 +398,21 @@ function setPendingBadge(count) {
 function distanceLabel(track) {
   if (!tracksViewCoords || track.lat == null || track.lng == null) return null;
   const km = haversineDistance(tracksViewCoords.lat, tracksViewCoords.lng, track.lat, track.lng);
-  return km < 1 ? "< 1 km" : `${Math.round(km).toLocaleString("en-US")} km`;
+  return km < 1 ? t("underOneKm") : t("km", formatNumber(Math.round(km)));
 }
 
 function showLoading(container, text) {
   container.innerHTML = `<div class="loading-state">${text}</div>`;
 }
 
-function showLoadError(container, what, retry) {
+function showLoadError(container, message, retry) {
   container.innerHTML = "";
   const box = document.createElement("div");
   box.className = "empty-state";
-  box.innerHTML = `<p>Couldn't load ${what}. Check your connection and try again.</p>`;
+  box.innerHTML = `<p>${message}</p>`;
   const retryBtn = document.createElement("button");
   retryBtn.className = "btn-primary btn-sm";
-  retryBtn.innerText = "Retry";
+  retryBtn.innerText = t("retry");
   retryBtn.onclick = retry;
   box.appendChild(retryBtn);
   container.appendChild(box);
@@ -439,12 +440,12 @@ async function loadFollowedTracks() {
 /* ---------------- Tracks View ---------------- */
 
 async function loadTracksView() {
-  showLoading(tracksContainer, "Loading tracks…");
+  showLoading(tracksContainer, t("loadingTracks"));
   try {
     await renderTracks();
   } catch (err) {
     console.error(err);
-    showLoadError(tracksContainer, "tracks", loadTracksView);
+    showLoadError(tracksContainer, t("loadTracksError"), loadTracksView);
   }
 }
 
@@ -472,15 +473,15 @@ function renderTrackList(searchTerm = "") {
   tracksContainer.innerHTML = "";
   const term = searchTerm.toLowerCase().trim();
   const filtered = cachedTrackDocs.filter(d => {
-    const t = d.data();
+    const track = d.data();
     return !term ||
-      t.name.toLowerCase().includes(term) ||
-      t.location.toLowerCase().includes(term) ||
-      (t.description && t.description.toLowerCase().includes(term));
+      track.name.toLowerCase().includes(term) ||
+      track.location.toLowerCase().includes(term) ||
+      (track.description && track.description.toLowerCase().includes(term));
   });
 
   if (filtered.length === 0) {
-    tracksContainer.innerHTML = '<div class="empty-state"><p>No tracks found.</p></div>';
+    tracksContainer.innerHTML = `<div class="empty-state"><p>${t("noTracks")}</p></div>`;
     return;
   }
 
@@ -518,11 +519,11 @@ async function refreshPendingBadge() {
 }
 
 function buildTrackCard(trackDoc) {
-  const t = trackDoc.data();
+  const track = trackDoc.data();
   const id = trackDoc.id;
-  const isOwner = t.createdBy === currentUser.uid;
+  const isOwner = track.createdBy === currentUser.uid;
   const isFollowing = followedTrackIds.has(id);
-  const href = safeHref(t.website);
+  const href = safeHref(track.website);
 
   const div = document.createElement("div");
   div.className = "card";
@@ -533,9 +534,9 @@ function buildTrackCard(trackDoc) {
   const setFollowState = following => {
     followBtn.classList.toggle("following", following);
     followBtn.innerHTML = following
-      ? '<span class="when-idle">✓ Following</span><span class="when-hover">Unfollow</span>'
-      : "Follow";
-    followBtn.title = following ? "Stop seeing this track's races" : "See this track's races in Races";
+      ? `<span class="when-idle">${t("following")}</span><span class="when-hover">${t("unfollow")}</span>`
+      : t("follow");
+    followBtn.title = t(following ? "unfollowTitle" : "followTitle");
   };
   setFollowState(isFollowing);
   followBtn.onclick = async () => {
@@ -556,13 +557,13 @@ function buildTrackCard(trackDoc) {
   const headerText = document.createElement("div");
   headerText.className = "card-header-text";
   headerText.innerHTML = `
-    <h3>${esc(t.name)}</h3>
+    <h3>${esc(track.name)}</h3>
     <div class="meta">
-      ${esc(t.location)}
-      ${distanceLabel(t) ? ` · ${distanceLabel(t)}` : ""}
-      ${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener">Website</a>` : ""}
+      ${esc(track.location)}
+      ${distanceLabel(track) ? ` · ${distanceLabel(track)}` : ""}
+      ${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener">${t("website")}</a>` : ""}
     </div>
-    ${t.description ? `<p>${esc(t.description)}</p>` : ""}
+    ${track.description ? `<p>${esc(track.description)}</p>` : ""}
   `;
 
   const cardHeader = document.createElement("div");
@@ -579,23 +580,20 @@ function buildTrackCard(trackDoc) {
     // Owner or admin: delete track (and its races)
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn-danger btn-sm delete-track-btn";
-    deleteBtn.innerText = "Delete track";
+    deleteBtn.innerText = t("deleteTrack");
     deleteBtn.onclick = async () => {
       deleteBtn.disabled = true;
       try {
         const raceSnap = await getDocs(query(collection(db, "races"), where("trackId", "==", id)));
         const raceDocs = raceSnap.docs;
-        const warning = raceDocs.length > 0
-          ? `\n\nThis also deletes its ${raceDocs.length} race${raceDocs.length === 1 ? "" : "s"} and all their registrations.`
-          : "";
-        if (!confirm(`Delete track "${t.name}"?${warning}`)) {
+        if (!confirm(t("deleteTrackConfirm", track.name, raceDocs.length))) {
           deleteBtn.disabled = false;
           return;
         }
         await deleteTrack(id, raceDocs);
       } catch (err) {
         console.error(err);
-        alert("Couldn't delete this track. Please try again.");
+        alert(t("deleteTrackFailed"));
         deleteBtn.disabled = false;
         return;
       }
@@ -612,7 +610,7 @@ function buildTrackCard(trackDoc) {
     // Owner: add race toggle
     const addRaceBtn = document.createElement("button");
     addRaceBtn.className = "btn-ghost btn-sm";
-    addRaceBtn.innerText = "Add Race";
+    addRaceBtn.innerText = t("addRace");
 
     const racePanel = document.createElement("div");
     racePanel.className = "race-panel hidden";
@@ -620,7 +618,7 @@ function buildTrackCard(trackDoc) {
     addRaceBtn.onclick = async () => {
       if (racePanel.classList.contains("hidden")) {
         racePanel.classList.remove("hidden");
-        await buildRacePanel(id, t.name, t.lat ?? null, t.lng ?? null, racePanel);
+        await buildRacePanel(id, track.name, track.lat ?? null, track.lng ?? null, racePanel);
       } else {
         racePanel.classList.add("hidden");
       }
@@ -652,14 +650,14 @@ async function deleteTrack(trackId, raceDocs) {
 }
 
 function buildPendingCard(trackDoc) {
-  const t = trackDoc.data();
+  const track = trackDoc.data();
   const id = trackDoc.id;
 
   const div = document.createElement("div");
   div.className = "card pending";
   div.innerHTML = `
-    <b>${esc(t.name)}</b> · ${esc(t.location)}
-    ${t.description ? `<br><small>${esc(t.description)}</small>` : ""}
+    <b>${esc(track.name)}</b> · ${esc(track.location)}
+    ${track.description ? `<br><small>${esc(track.description)}</small>` : ""}
   `;
 
   const btnRow = document.createElement("div");
@@ -667,7 +665,7 @@ function buildPendingCard(trackDoc) {
 
   const approveBtn = document.createElement("button");
   approveBtn.className = "btn-primary btn-sm";
-  approveBtn.innerText = "Approve";
+  approveBtn.innerText = t("approve");
   approveBtn.onclick = async () => {
     await updateDoc(doc(db, "tracks", id), { status: "approved" });
     await loadTracksView();
@@ -675,9 +673,9 @@ function buildPendingCard(trackDoc) {
 
   const rejectBtn = document.createElement("button");
   rejectBtn.className = "btn-danger btn-sm";
-  rejectBtn.innerText = "Reject";
+  rejectBtn.innerText = t("reject");
   rejectBtn.onclick = async () => {
-    if (!confirm(`Reject and delete track "${t.name}"?`)) return;
+    if (!confirm(t("rejectConfirm", track.name))) return;
     await deleteDoc(doc(db, "tracks", id));
     await loadPendingTracks();
   };
@@ -704,7 +702,7 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
   const website = document.getElementById("newTrackWebsite").value.trim();
   const description = document.getElementById("newTrackDescription").value.trim();
 
-  if (!name || !location) { alert("Name and location are required"); return; }
+  if (!name || !location) { alert(t("nameLocationRequired")); return; }
 
   const coords = await getUserLocation();
 
@@ -721,7 +719,7 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
 
   await addDoc(collection(db, "tracks"), trackData);
 
-  alert("Track submitted for approval!");
+  alert(t("trackSubmitted"));
   createTrackForm.classList.add("hidden");
   document.getElementById("newTrackName").value = "";
   document.getElementById("newTrackLocation").value = "";
@@ -736,12 +734,12 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 
   // --- Create Race Form ---
   const formTitle = document.createElement("h4");
-  formTitle.innerText = "Create Race";
+  formTitle.innerText = t("createRace");
   container.appendChild(formTitle);
 
   const nameInput = document.createElement("input");
   nameInput.type = "text";
-  nameInput.placeholder = "Race name";
+  nameInput.placeholder = t("raceName");
   container.appendChild(nameInput);
   container.appendChild(document.createElement("br"));
 
@@ -752,7 +750,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 
   // Categories
   const catsLabel = document.createElement("p");
-  catsLabel.innerText = "Categories:";
+  catsLabel.innerText = t("categoriesLabel");
   container.appendChild(catsLabel);
 
   const catsDiv = document.createElement("div");
@@ -764,7 +762,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 
     const nameIn = document.createElement("input");
     nameIn.type = "text";
-    nameIn.placeholder = "Category name (e.g. 2WD Buggy)";
+    nameIn.placeholder = t("categoryPlaceholder");
 
     const removeBtn = document.createElement("button");
     removeBtn.innerText = "×";
@@ -779,19 +777,19 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 
   const addCatBtn = document.createElement("button");
   addCatBtn.className = "btn-ghost btn-sm";
-  addCatBtn.innerText = "+ Add Category";
+  addCatBtn.innerText = t("addCategory");
   addCatBtn.onclick = addCategoryRow;
   container.appendChild(addCatBtn);
   container.appendChild(document.createElement("br"));
 
   const createRaceBtn = document.createElement("button");
   createRaceBtn.className = "btn-primary btn-sm";
-  createRaceBtn.innerText = "Create Race";
+  createRaceBtn.innerText = t("createRace");
   createRaceBtn.onclick = async () => {
     const name = nameInput.value.trim();
     const date = dateInput.value;
 
-    if (!name || !date) { alert("Name and date are required"); return; }
+    if (!name || !date) { alert(t("nameDateRequired")); return; }
 
     const categories = [];
     catsDiv.querySelectorAll(".cat-row").forEach(row => {
@@ -799,7 +797,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
       if (catName) categories.push({ name: catName });
     });
 
-    if (categories.length === 0) { alert("Add at least one category"); return; }
+    if (categories.length === 0) { alert(t("addOneCategory")); return; }
 
     const raceData = {
       name,
@@ -821,7 +819,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   const snap = await getDocs(query(collection(db, "races"), where("trackId", "==", trackId)));
   if (!snap.empty) {
     const listTitle = document.createElement("h4");
-    listTitle.innerText = "Existing Races";
+    listTitle.innerText = t("existingRaces");
     container.appendChild(listTitle);
 
     const races = [];
@@ -830,7 +828,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 
     races.forEach(r => {
       const item = document.createElement("div");
-      item.innerHTML = `<b>${esc(r.name)}</b> — ${esc(r.date)}
+      item.innerHTML = `<b>${esc(r.name)}</b> — ${esc(formatDate(r.date))}
         <span class="meta"> · ${r.categories.map(c => esc(c.name)).join(", ")}</span>`;
       container.appendChild(item);
     });
@@ -840,12 +838,12 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
 /* ---------------- Races View ---------------- */
 
 async function loadRacesView() {
-  showLoading(racesContainer, "Loading races…");
+  showLoading(racesContainer, t("loadingRaces"));
   try {
     await renderRaces();
   } catch (err) {
     console.error(err);
-    showLoadError(racesContainer, "races", loadRacesView);
+    showLoadError(racesContainer, t("loadRacesError"), loadRacesView);
   }
 }
 
@@ -853,7 +851,7 @@ async function renderRaces() {
   await startupDataReady();
 
   if (followedTrackIds.size === 0) {
-    racesContainer.innerHTML = '<div class="empty-state"><p>Follow some tracks to see their races here.</p></div>';
+    racesContainer.innerHTML = `<div class="empty-state"><p>${t("followToSee")}</p></div>`;
     return;
   }
 
@@ -863,7 +861,7 @@ async function renderRaces() {
   );
 
   if (snap.empty) {
-    racesContainer.innerHTML = '<div class="empty-state"><p>No races scheduled for your followed tracks yet.</p></div>';
+    racesContainer.innerHTML = `<div class="empty-state"><p>${t("noRacesYet")}</p></div>`;
     return;
   }
 
@@ -895,7 +893,7 @@ async function renderRaces() {
 
   racesContainer.innerHTML = "";
   if (upcoming.length === 0) {
-    racesContainer.innerHTML = '<div class="empty-state"><p>No upcoming races for your followed tracks.</p></div>';
+    racesContainer.innerHTML = `<div class="empty-state"><p>${t("noUpcoming")}</p></div>`;
   }
   upcoming.forEach(race => racesContainer.appendChild(cardFor(race, false)));
 
@@ -909,7 +907,7 @@ async function renderRaces() {
 
     const setLabel = () => {
       const open = !pastList.classList.contains("hidden");
-      pastToggle.innerText = `${open ? "▾" : "▸"} Past races (${past.length})`;
+      pastToggle.innerText = `${open ? "▾" : isRtl ? "◂" : "▸"} ${t("pastRaces", past.length)}`;
     };
     pastToggle.onclick = () => {
       pastList.classList.toggle("hidden");
@@ -924,10 +922,6 @@ async function renderRaces() {
 
 function localDateString(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function driverCount(n) {
-  return `${n} driver${n === 1 ? "" : "s"}`;
 }
 
 // Per-category entries; older registrations stored categories[] + one transponder
@@ -1023,7 +1017,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
   div.innerHTML = `
     <h3>${esc(race.name)}</h3>
     <div class="meta">
-      ${esc(race.trackName)} · ${esc(race.date)} · ${driverCount(regs.length)} registered
+      ${esc(race.trackName)} · ${esc(formatDate(race.date))} · ${t("registeredCount", regs.length)}
     </div>
   `;
 
@@ -1043,13 +1037,13 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
     const catName = document.createElement("div");
     catName.className = "cat-name";
-    catName.innerHTML = `${esc(cat.name)}<div class="cat-meta">${driverCount(byCategory.get(cat.name).length)}</div>`;
+    catName.innerHTML = `${esc(cat.name)}<div class="cat-meta">${t("drivers", byCategory.get(cat.name).length)}</div>`;
     head.appendChild(catName);
 
     if (myEntry) {
       const tag = document.createElement("span");
       tag.className = "reg-tag";
-      tag.innerText = "✓ Registered";
+      tag.innerText = t("registered");
       head.appendChild(tag);
     }
 
@@ -1063,12 +1057,12 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
     const actionBtn = document.createElement("button");
     actionBtn.className = myEntry ? "btn-ghost btn-sm" : "btn-primary btn-sm";
-    actionBtn.innerText = myEntry ? "Unregister" : "Register";
+    actionBtn.innerText = t(myEntry ? "unregister" : "register");
     head.appendChild(actionBtn);
 
     if (myEntry) {
       actionBtn.onclick = async () => {
-        if (!confirm(`Unregister from ${cat.name}?`)) return;
+        if (!confirm(t("unregisterConfirm", cat.name))) return;
         await saveMyEntries(race, myReg, myEntries.filter(e => e.category !== cat.name));
         await loadRacesView();
       };
@@ -1080,16 +1074,16 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
       const transponderInput = document.createElement("input");
       transponderInput.type = "text";
       transponderInput.inputMode = "numeric";
-      transponderInput.placeholder = "Transponder # (optional)";
+      transponderInput.placeholder = t("transponderPlaceholder");
       transponderInput.value = currentUserTransponder;
 
       const confirmBtn = document.createElement("button");
       confirmBtn.className = "btn-primary btn-sm";
-      confirmBtn.innerText = "Confirm";
+      confirmBtn.innerText = t("confirm");
 
       const cancelBtn = document.createElement("button");
       cancelBtn.className = "btn-secondary btn-sm";
-      cancelBtn.innerText = "Cancel";
+      cancelBtn.innerText = t("cancel");
 
       form.appendChild(transponderInput);
       form.appendChild(confirmBtn);
@@ -1136,7 +1130,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
   if (regs.length > 0) {
     const toggleBtn = document.createElement("button");
     toggleBtn.className = "btn-ghost btn-sm";
-    toggleBtn.innerText = `Show drivers (${regs.length})`;
+    toggleBtn.innerText = t("showDrivers", regs.length);
 
     list = document.createElement("div");
     list.className = "drivers-list hidden";
@@ -1151,23 +1145,23 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
       drivers.forEach(d => {
         const li = document.createElement("li");
         li.innerHTML = `
-          ${esc(d.name || "Unnamed driver")}${d.uid === currentUser.uid ? ' <span class="you-tag">you</span>' : ""}
-          ${d.transponder ? `<span class="transponder">#${esc(d.transponder)}</span>` : ""}
+          ${esc(d.name || t("unnamedDriver"))}${d.uid === currentUser.uid ? ` <span class="you-tag">${t("you")}</span>` : ""}
+          ${d.transponder ? `<span class="transponder" dir="ltr">#${esc(d.transponder)}</span>` : ""}
         `;
 
         if (canManage) {
           const removeBtn = document.createElement("button");
           removeBtn.className = "remove-driver-btn";
           removeBtn.innerText = "×";
-          removeBtn.title = `Remove from ${name}`;
+          removeBtn.title = t("removeFrom", name);
           removeBtn.onclick = async () => {
-            if (!confirm(`Remove ${d.name || "this driver"} from ${name}?`)) return;
+            if (!confirm(t("removeConfirm", d.name || t("thisDriver"), name))) return;
             removeBtn.disabled = true;
             try {
               await removeDriverEntry(race.id, d.reg, name);
             } catch (err) {
               console.error(err);
-              alert("Couldn't remove this driver. Please try again.");
+              alert(t("removeFailed"));
               removeBtn.disabled = false;
               return;
             }
@@ -1185,19 +1179,19 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
     toggleBtn.onclick = () => {
       const hidden = list.classList.toggle("hidden");
-      toggleBtn.innerText = `${hidden ? "Show" : "Hide"} drivers (${regs.length})`;
+      toggleBtn.innerText = t(hidden ? "showDrivers" : "hideDrivers", regs.length);
     };
 
     footer.appendChild(toggleBtn);
 
     const listActions = document.createElement("div");
     listActions.className = "drivers-list-actions";
-    listActions.innerHTML = `<span>Registered drivers</span>`;
+    listActions.innerHTML = `<span>${t("registeredDrivers")}</span>`;
 
     const csvBtn = document.createElement("button");
     csvBtn.className = "btn-ghost btn-sm";
-    csvBtn.innerText = "Download CSV";
-    csvBtn.title = "Driver list (Name, Class, Transponder) for import into timing software";
+    csvBtn.innerText = t("downloadCsv");
+    csvBtn.title = t("csvTitle");
     csvBtn.onclick = () => {
       const safeName = `${race.date} ${race.name}`.replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, "-");
       downloadCsv(`${safeName}-drivers.csv`, driversCsv(byCategory));
@@ -1210,16 +1204,15 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
   if (canManage) {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn-danger btn-sm delete-race-btn";
-    deleteBtn.innerText = "Delete race";
+    deleteBtn.innerText = t("deleteRace");
     deleteBtn.onclick = async () => {
-      const warning = regs.length > 0 ? `\n\n${driverCount(regs.length)} registered will be removed.` : "";
-      if (!confirm(`Delete "${race.name}"?${warning}`)) return;
+      if (!confirm(t("deleteRaceConfirm", race.name, regs.length))) return;
       deleteBtn.disabled = true;
       try {
         await deleteRace(race.id, regs);
       } catch (err) {
         console.error(err);
-        alert("Couldn't delete this race. Please try again.");
+        alert(t("deleteRaceFailed"));
         deleteBtn.disabled = false;
         return;
       }
