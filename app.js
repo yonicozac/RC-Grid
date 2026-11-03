@@ -26,6 +26,7 @@ import {
   query,
   where,
   serverTimestamp,
+  deleteField,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -940,11 +941,11 @@ async function saveMyEntries(race, myReg, entries) {
   if (entries.length === 0) {
     await deleteDoc(ref);
   } else if (myReg) {
-    await updateDoc(ref, { entries, name: currentUserName });
+    // email: registrations are readable by every signed-in user, so older docs drop it
+    await updateDoc(ref, { entries, name: currentUserName, email: deleteField() });
   } else {
     await setDoc(ref, {
       uid: currentUser.uid,
-      email: currentUser.email,
       name: currentUserName,
       entries,
       registeredAt: serverTimestamp()

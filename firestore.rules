@@ -62,9 +62,11 @@ service cloud.firestore {
         request.resource.data.createdBy == request.auth.uid &&
         get(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.createdBy == request.auth.uid;
 
-      // Only the race creator (track owner) can update
+      // Only the race creator (track owner) can update, and only the race details:
+      // the race can't be moved to another track or handed to another user
       allow update: if isAuthenticated() &&
-        resource.data.createdBy == request.auth.uid;
+        resource.data.createdBy == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "date", "categories"]);
 
       // Race creator (track owner) or admin can delete
       allow delete: if isAdmin() ||
@@ -75,8 +77,18 @@ service cloud.firestore {
         // Any authenticated user can read registrations
         allow read: if isAuthenticated();
 
-        // Users can only write their own registration
-        allow write: if isOwner(userId);
+        // Users can only write their own registration. Registrations are readable by
+        // every signed-in user, so they may hold only these fields (no email);
+        // categories/transponder are legacy fields still present on older docs.
+        function hasOnlyRegFields() {
+          return request.resource.data.keys().hasOnly(
+            ["uid", "name", "entries", "registeredAt", "categories", "transponder"]);
+        }
+        allow create: if isOwner(userId) && hasOnlyRegFields() &&
+          request.resource.data.uid == userId;
+        allow update: if isOwner(userId) && hasOnlyRegFields() &&
+          request.resource.data.uid == userId;
+        allow delete: if isOwner(userId);
 
         function isRaceManager() {
           return isAdmin() ||

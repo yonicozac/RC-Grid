@@ -47,7 +47,7 @@ races/{raceId}
   categories: [{ name }]   // older races may still carry capacity/totalCapacity (unused)
   createdBy, createdAt
 races/{raceId}/registrations/{uid}
-  uid, email, name, registeredAt
+  uid, name, registeredAt  // no email: every signed-in user can read registrations
   entries: [{ category, transponder? }]   // one per category the driver entered
   // legacy docs: categories: string[] + transponder? (read via regEntries())
 ```
@@ -68,6 +68,7 @@ races/{raceId}/registrations/{uid}
 - `app.js` is split into sections by `/* ---------------- Section ---------------- */` comment banners. Put new code in the matching section.
 - After a mutation, re-render by calling the view loader again (for example `loadRacesView()`).
 - Deleting a race uses a batched write that also deletes its `registrations` docs (Firestore doesn't cascade subcollection deletes). Deleting a track does the same for all its races (`deleteTrack`, chunked to stay under the 500-write batch limit). Other users' `following/{trackId}` docs for a deleted track are left behind; they're harmless but still count toward the 30-track `in` query limit.
+- Registrations are readable by every signed-in user, so never store private data (like email) on them; the rules allow only the listed fields. A race's owner can edit only its `name`, `date` and `categories` (not `trackId` or `createdBy`).
 - Any change to permissions or data shape needs a matching `firestore.rules` update. Deploy with `firebase deploy --only firestore:rules`.
 
 ## Gotchas
