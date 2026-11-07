@@ -640,13 +640,18 @@ button:disabled { opacity: 0.55; cursor: default; }
 .section-header h2::before {
   content: "//";
   font-family: var(--mono);
-  font-variant-ligatures: none; /* JetBrains Mono's "//" ligature shifts left, into the text in RTL */
-  letter-spacing: -0.15em; /* tight pair, without the ligature */
   font-size: 1.1rem;
   font-weight: 500;
   color: var(--accent);
   margin-inline-end: 10px;
   vertical-align: 3px;
+}
+
+/* JetBrains Mono's "//" ligature shifts left, which in RTL is into the heading text:
+   turn it off and keep the pair tight with letter-spacing instead */
+:root[dir="rtl"] .section-header h2::before {
+  font-variant-ligatures: none;
+  letter-spacing: -0.15em;
 }
 
 /* ---- Search ---- */
