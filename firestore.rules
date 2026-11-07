@@ -82,7 +82,8 @@ service cloud.firestore {
         // categories/transponder are legacy fields still present on older docs.
         function hasOnlyRegFields() {
           return request.resource.data.keys().hasOnly(
-            ["uid", "name", "entries", "registeredAt", "categories", "transponder"]);
+            ["uid", "name", "firstName", "lastName", "nickname", "entries", "registeredAt",
+             "categories", "transponder"]);
         }
         allow create: if isOwner(userId) && hasOnlyRegFields() &&
           request.resource.data.uid == userId;

@@ -361,6 +361,18 @@ nav button.active::after { opacity: 1; }
 /* Letter-spaced uppercase labels look broken in Hebrew (no case, separate letters) */
 :root[lang="he"] body * { letter-spacing: normal !important; /* beats the id-scoped label rules */ }
 
+/* ---- Name fields (onboarding + Profile) ---- */
+.name-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 /* ---- Footer ---- */
 .site-footer {
   height: 56px;
@@ -1101,8 +1113,13 @@ label input[type="checkbox"] {
   <div class="auth-card">
     <div class="logo">RC<span>Grid</span></div>
     <h3 data-i18n="welcome">Welcome!</h3>
-    <p data-i18n="whatName">What should we call you?</p>
-    <input id="nameInput" type="text" placeholder="Your name" data-i18n-placeholder="yourName">
+    <p data-i18n="whatName">What's your name?</p>
+    <div class="name-fields">
+      <input id="setupFirstName" type="text" autocomplete="given-name" placeholder="First name" data-i18n-placeholder="firstName">
+      <input id="setupLastName" type="text" autocomplete="family-name" placeholder="Last name" data-i18n-placeholder="lastName">
+    </div>
+    <input id="setupNickname" type="text" autocomplete="nickname" placeholder="Nickname (optional)" data-i18n-placeholder="nicknameOptional">
+    <p class="field-hint" data-i18n="nicknameHint">Shown in driver lists instead of your name.</p>
     <button id="saveNameBtn" data-i18n="continue">Continue</button>
     <p class="status-msg" id="nameSetupStatus"></p>
   </div>
@@ -1188,8 +1205,19 @@ label input[type="checkbox"] {
 <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
   <div class="modal-card">
     <h3 id="profileTitle" data-i18n="profile">Profile</h3>
-    <label class="field-label" for="profileNameInput" data-i18n="name">Name</label>
-    <input id="profileNameInput" type="text" placeholder="Your name" data-i18n-placeholder="yourName">
+    <div class="name-fields">
+      <div>
+        <label class="field-label" for="profileFirstName" data-i18n="firstName">First name</label>
+        <input id="profileFirstName" type="text" autocomplete="given-name">
+      </div>
+      <div>
+        <label class="field-label" for="profileLastName" data-i18n="lastName">Last name</label>
+        <input id="profileLastName" type="text" autocomplete="family-name">
+      </div>
+    </div>
+    <label class="field-label" for="profileNickname" data-i18n="nicknameOptional">Nickname (optional)</label>
+    <input id="profileNickname" type="text" autocomplete="nickname">
+    <p class="field-hint" data-i18n="nicknameHint">Shown in driver lists instead of your name.</p>
     <label class="field-label" data-i18n="email">Email</label>
     <div id="profileEmail" class="profile-email"></div>
     <div class="btn-row">

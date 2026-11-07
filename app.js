@@ -53,7 +53,7 @@ await setPersistence(auth, browserLocalPersistence);
 /* ---------------- State ---------------- */
 
 let currentUser = null;
-let currentUserName = null;
+let currentProfile = null;   // { firstName, lastName, nickname } from users/{uid}
 let currentUserTransponder = "";
 let isAdmin = false;
 let followedTrackIds = new Set();
@@ -176,7 +176,7 @@ onAuthStateChanged(auth, async (user) => {
     nameSetupArea.classList.add("hidden");
     appArea.classList.add("hidden");
     currentUser = null;
-    currentUserName = null;
+    currentProfile = null;
     currentUserTransponder = "";
     setPendingBadge(0);
     return;
@@ -196,13 +196,18 @@ onAuthStateChanged(auth, async (user) => {
     showStartupError();
     return;
   }
-  currentUserName = userDoc.exists() ? userDoc.data().name : null;
-  currentUserTransponder = userDoc.exists() ? userDoc.data().transponder ?? "" : "";
+  const data = userDoc.exists() ? userDoc.data() : {};
+  currentProfile = profileFrom(data);
+  currentUserTransponder = data.transponder ?? "";
 
-  if (!currentUserName) {
+  // New users, and profiles from before first/last names, fill in the name form first
+  if (!data.firstName || !data.lastName) {
     nameSetupArea.classList.remove("hidden");
-    // Google accounts come with a name; suggest it
-    document.getElementById("nameInput").value = user.displayName ?? "";
+    // Suggest the old single name, or the Google account's name, split at the first space
+    fillNameFields("setup", {
+      ...splitName(data.name || user.displayName),
+      nickname: data.nickname ?? ""
+    });
     appArea.classList.add("hidden");
     return;
   }
@@ -250,13 +255,13 @@ logoutBtn.onclick = () => {
 const profileBtn = document.getElementById("profileBtn");
 const profileDropdown = document.getElementById("profileDropdown");
 const profileModal = document.getElementById("profileModal");
-const profileNameInput = document.getElementById("profileNameInput");
 const profileStatus = document.getElementById("profileStatus");
 
 function updateProfileButton() {
-  const name = currentUserName || currentUser?.email || "";
+  const shown = displayName(currentProfile);
+  const name = shown || currentUser?.email || "";
   document.getElementById("profileInitial").innerText = name.trim().charAt(0).toUpperCase() || "?";
-  document.getElementById("profileName").innerText = currentUserName || "";
+  document.getElementById("profileName").innerText = shown;
 }
 
 function closeProfileMenu() {
@@ -282,12 +287,12 @@ document.addEventListener("keydown", e => {
 
 document.getElementById("openProfileBtn").onclick = () => {
   closeProfileMenu();
-  profileNameInput.value = currentUserName ?? "";
+  fillNameFields("profile", currentProfile);
   document.getElementById("profileEmail").innerText = currentUser.email ?? "";
   profileStatus.classList.remove("error");
   profileStatus.innerText = "";
   profileModal.classList.remove("hidden");
-  profileNameInput.focus();
+  document.getElementById("profileFirstName").focus();
 };
 
 document.getElementById("cancelProfileBtn").onclick = () => profileModal.classList.add("hidden");
@@ -296,42 +301,104 @@ profileModal.onclick = e => {
 };
 
 const saveProfile = async () => {
-  const name = profileNameInput.value.trim();
-  if (!name) {
-    profileStatus.classList.add("error");
-    profileStatus.innerText = t("nameEmpty");
-    return;
+  if (await saveNameFields("profile", profileStatus, document.getElementById("saveProfileBtn"))) {
+    updateProfileButton();
+    profileModal.classList.add("hidden");
   }
-  const saveBtn = document.getElementById("saveProfileBtn");
-  saveBtn.disabled = true;
-  try {
-    await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
-  } catch (err) {
-    console.error(err);
-    profileStatus.classList.add("error");
-    profileStatus.innerText = t("saveFailed");
-    return;
-  } finally {
-    saveBtn.disabled = false;
-  }
-  currentUserName = name;
-  updateProfileButton();
-  profileModal.classList.add("hidden");
 };
 document.getElementById("saveProfileBtn").onclick = saveProfile;
-profileNameInput.onkeydown = e => { if (e.key === "Enter") saveProfile(); };
+profileModal.querySelectorAll("input").forEach(input => {
+  input.onkeydown = e => { if (e.key === "Enter") saveProfile(); };
+});
 
 /* ---------------- Name Setup ---------------- */
 
-document.getElementById("saveNameBtn").onclick = async () => {
-  const name = document.getElementById("nameInput").value.trim();
-  if (!name) { alert(t("enterName")); return; }
-
-  await setDoc(doc(db, "users", currentUser.uid), { name }, { merge: true });
-  currentUserName = name;
-
-  enterApp();
+const saveNameSetup = async () => {
+  const status = document.getElementById("nameSetupStatus");
+  if (await saveNameFields("setup", status, document.getElementById("saveNameBtn"))) enterApp();
 };
+document.getElementById("saveNameBtn").onclick = saveNameSetup;
+nameSetupArea.querySelectorAll("input").forEach(input => {
+  input.onkeydown = e => { if (e.key === "Enter") saveNameSetup(); };
+});
+
+/* ---------------- Driver Names ----------------
+ * users/{uid} and registrations hold firstName, lastName and an optional nickname, plus
+ * `name` (the full name) for older readers. Lists show the nickname when there is one.
+ */
+
+function splitName(name) {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
+}
+
+// Older docs only have `name`: split it at the first space
+function profileFrom(data) {
+  if (!data) return { firstName: "", lastName: "", nickname: "" };
+  const split = data.firstName ? { firstName: data.firstName, lastName: data.lastName ?? "" } : splitName(data.name);
+  return { ...split, nickname: data.nickname ?? "" };
+}
+
+function fullName(data) {
+  const p = profileFrom(data);
+  return [p.firstName, p.lastName].filter(Boolean).join(" ");
+}
+
+function displayName(data) {
+  return profileFrom(data).nickname || fullName(data);
+}
+
+// Name fields on the registration doc, copied from the current profile
+function profileFields() {
+  return {
+    firstName: currentProfile.firstName,
+    lastName: currentProfile.lastName,
+    nickname: currentProfile.nickname || null,
+    name: fullName(currentProfile)
+  };
+}
+
+// The onboarding screen and Profile dialog share a field layout: <prefix>FirstName etc.
+function fillNameFields(prefix, profile) {
+  document.getElementById(`${prefix}FirstName`).value = profile?.firstName ?? "";
+  document.getElementById(`${prefix}LastName`).value = profile?.lastName ?? "";
+  document.getElementById(`${prefix}Nickname`).value = profile?.nickname ?? "";
+}
+
+// Validate and save to users/{uid}; returns true on success
+async function saveNameFields(prefix, statusEl, saveBtn) {
+  const profile = {
+    firstName: document.getElementById(`${prefix}FirstName`).value.trim().replace(/\s+/g, " "),
+    lastName: document.getElementById(`${prefix}LastName`).value.trim().replace(/\s+/g, " "),
+    nickname: document.getElementById(`${prefix}Nickname`).value.trim().replace(/\s+/g, " ")
+  };
+  statusEl.classList.remove("error");
+  statusEl.innerText = "";
+  if (!profile.firstName || !profile.lastName) {
+    statusEl.classList.add("error");
+    statusEl.innerText = t("nameRequired");
+    return false;
+  }
+
+  saveBtn.disabled = true;
+  try {
+    await setDoc(doc(db, "users", currentUser.uid), {
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      nickname: profile.nickname || null,
+      name: fullName(profile)
+    }, { merge: true });
+  } catch (err) {
+    console.error(err);
+    statusEl.classList.add("error");
+    statusEl.innerText = t("saveFailed");
+    return false;
+  } finally {
+    saveBtn.disabled = false;
+  }
+  currentProfile = profile;
+  return true;
+}
 
 /* ---------------- Navigation ---------------- */
 
@@ -940,11 +1007,11 @@ async function saveMyEntries(race, myReg, entries) {
     await deleteDoc(ref);
   } else if (myReg) {
     // email: registrations are readable by every signed-in user, so older docs drop it
-    await updateDoc(ref, { entries, name: currentUserName, email: deleteField() });
+    await updateDoc(ref, { entries, ...profileFields(), email: deleteField() });
   } else {
     await setDoc(ref, {
       uid: currentUser.uid,
-      name: currentUserName,
+      ...profileFields(),
       entries,
       registeredAt: serverTimestamp()
     });
@@ -969,16 +1036,40 @@ function normalizeName(name) {
     .replace(/(^|[\s-])(\S)/g, (_, sep, ch) => sep + ch.toUpperCase());
 }
 
-// RaceLyx-compatible driver import: one row per driver per class
-// (https://racelyx.com/learn/director-import-drivers-csv/)
+// LiveRC / LiveTime driver import: every column of LiveRC's registration export, in its
+// order (the importer expects the full layout), one row per driver per class
+const LIVERC_COLUMNS = [
+  "FirstName", "LastName", "NickName", "PhoneticName", "Ability", "ClassName", "IsPaid",
+  "PillNumber", "LocalRegisteredDateTime", "RegistrationNumber", "Region", "FrameNumber",
+  "PermanentNumber", "PrimaryColor", "SecondaryColor", "Manufacturer", "ChassisManufacturer",
+  "ModelName", "ModelYear", "TransponderNumber", "CarID", "GPSTransponderNumber", "SponsorName",
+  "Email", "PhoneNumber", "Birthday", "Category", "Gender", "Address1", "Address2", "City",
+  "State", "ZipCode", "Country", "Hometown", "BRCARank", "BRCAFormulaGrade", "BRCARegion",
+  "EFRAAbility", "ClubName", "ClubRegion", "AmericanMotorcyclistAssociationNumber",
+  "AmericanMotorcyclistAssociationExpirationDate", "AcademyOfModelAeronauticsNumber",
+  "AcademyOfModelAeronauticsExpirationDate", "HAMCallSign", "FAANumber", "LocalMembershipType",
+  "LocalMembershipCode", "LocalMembershipExpirationDate"
+];
+
 function driversCsv(byCategory) {
   const cell = v => {
     const str = String(v ?? "");
     return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
   };
-  const rows = [["Name", "Class", "Transponder"]];
+  const rows = [LIVERC_COLUMNS];
   byCategory.forEach((drivers, category) => {
-    drivers.forEach(d => rows.push([normalizeName(d.name), category, d.transponder || ""]));
+    drivers.forEach(d => {
+      const p = profileFrom(d.reg);
+      const values = {
+        FirstName: normalizeName(p.firstName),
+        LastName: normalizeName(p.lastName),
+        NickName: p.nickname,
+        ClassName: category,
+        IsPaid: "False",   // as in LiveRC's own export; payment is handled at the track
+        TransponderNumber: d.transponder || ""
+      };
+      rows.push(LIVERC_COLUMNS.map(col => values[col] ?? ""));
+    });
   });
   return rows.map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }
@@ -1064,7 +1155,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
   const byCategory = new Map(race.categories.map(c => [c.name, []]));
   regs.forEach(r => regEntries(r).forEach(e => {
     if (!byCategory.has(e.category)) byCategory.set(e.category, []);
-    byCategory.get(e.category).push({ uid: r.uid, name: r.name, transponder: e.transponder, reg: r });
+    byCategory.get(e.category).push({ uid: r.uid, name: displayName(r), transponder: e.transponder, reg: r });
   }));
 
   div.innerHTML = `

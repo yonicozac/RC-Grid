@@ -31,7 +31,9 @@ Lightweight RC race management app: racers follow tracks and register for races,
 admins/{uid}
 
 users/{uid}
-  name
+  firstName, lastName      // both required
+  nickname?                // shown in driver lists instead of the full name
+  name                     // "firstName lastName", kept for older readers
   transponder?             // last-used transponder, prefills registration
 users/{uid}/following/{trackId}
   followedAt
@@ -48,7 +50,8 @@ races/{raceId}
   categories: [{ name }]   // older races may still carry capacity/totalCapacity (unused)
   createdBy, createdAt
 races/{raceId}/registrations/{uid}
-  uid, name, registeredAt  // no email: every signed-in user can read registrations
+  uid, registeredAt        // no email: every signed-in user can read registrations
+  firstName, lastName, nickname?, name   // copied from users/{uid} on each register/unregister
   entries: [{ category, transponder? }]   // one per category the driver entered
   // legacy docs: categories: string[] + transponder? (read via regEntries())
 ```
@@ -56,10 +59,10 @@ races/{raceId}/registrations/{uid}
 ## App flow
 
 1. Sign in with Google (`signInWithPopup`, the primary option) or an email magic link (`actionCodeSettings.url` is hardcoded to the GitHub Pages URL). Magic links are capped at 5 emails/day on the Spark plan and break when the link opens in a different/private browser, which is why Google is primary.
-2. On first login, the user sets a name in `users/{uid}` (prefilled from the Google account name when available).
-3. The top-right profile button (initial + name; initial only on phones) opens a menu with **Profile** (dialog to change the name in `users/{uid}`) and **Log out**. A renamed user's existing registrations keep the old name until they next register or unregister, since `name` is copied onto each registration.
+2. On first login, the user enters first name, last name and an optional nickname (prefilled by splitting the Google account name at the first space). Users whose profile lacks `firstName` or `lastName` see this screen again.
+3. The top-right profile button (initial + nickname or full name; initial only on phones) opens a menu with **Profile** (dialog to edit first name, last name and nickname) and **Log out**. A renamed user's existing registrations keep the old name until they next register or unregister, since the name fields are copied onto each registration. Helpers in the "Driver Names" section of `app.js` (`profileFrom`, `fullName`, `displayName`) fall back to splitting `name` for docs that predate the split.
 4. There are two views:
-   - **Races** (default): upcoming races (date ≥ today, local time) from followed tracks, soonest first. Past races sit in a collapsed, low-key "Past races" section (most recent first, registration closed), shown only when there are any. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers. Anyone can download the list as a RaceLyx-compatible CSV (`Name,Class,Transponder`, one row per driver per class, UTF-8 with BOM). Names are normalized in the export only (`normalizeName`: trimmed, each word capitalized, e.g. "dana LEVI" → "Dana Levi") so case differences don't create duplicate drivers in the timing software.
+   - **Races** (default): upcoming races (date ≥ today, local time) from followed tracks, soonest first. Past races sit in a collapsed, low-key "Past races" section (most recent first, registration closed), shown only when there are any. Register/unregister each category independently; clicking Register asks for that category's transponder (optional). Each card shows driver counts (total and per category) and a collapsible list of registered drivers (nickname if set, otherwise full name). Anyone can download the list as a LiveRC/LiveTime CSV: all 50 columns of LiveRC's registration export in its exact order (`LIVERC_COLUMNS`; the race director's importer expects the full layout), filling `FirstName`, `LastName`, `NickName`, `ClassName`, `TransponderNumber` and `IsPaid=False`, the rest empty. One row per driver per class, UTF-8 with BOM. First and last names are normalized in the export only (`normalizeName`: trimmed, each word capitalized, e.g. "dana LEVI" → "Dana Levi") so case differences don't create duplicate drivers in the timing software; nicknames are exported as entered.
    - **Tracks**: approved tracks with search: your own tracks first, then by distance when location is known (no location last), then by name (location cached in `localStorage` as `rcgrid_location`, cleared on logout). Includes a Follow / ✓ Following button (text, not an icon: iOS renders ♥ as a red emoji), the submit-track form, the admin pending queue, and the owner's "Add Race" panel.
 
 ## Localization
@@ -72,7 +75,7 @@ races/{raceId}/registrations/{uid}
 - Race dates show through `formatDate()` (e.g. "Sat 14 Nov 2026"). The stored value stays `YYYY-MM-DD`.
 - CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`) so Hebrew mirrors correctly. Don't add `left`/`right` or `margin-left`/`margin-right` for anything that should flip.
 - Heebo (Google Fonts) supplies Hebrew glyphs, since Inter and JetBrains Mono have none. Letter-spacing is turned off for Hebrew pages.
-- User content (track and race names, categories) and the CSV export are not translated. The CSV header stays `Name,Class,Transponder` for RaceLyx.
+- User content (track and race names, categories) and the CSV export are not translated. The CSV header stays in LiveRC's English column names.
 
 ## Conventions
 
