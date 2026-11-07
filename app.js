@@ -304,6 +304,8 @@ const saveProfile = async () => {
   if (await saveNameFields("profile", profileStatus, document.getElementById("saveProfileBtn"))) {
     updateProfileButton();
     profileModal.classList.add("hidden");
+    // Show the new name in the driver lists
+    if (!racesView.classList.contains("hidden")) loadRacesView();
   }
 };
 document.getElementById("saveProfileBtn").onclick = saveProfile;
@@ -397,7 +399,28 @@ async function saveNameFields(prefix, statusEl, saveBtn) {
     saveBtn.disabled = false;
   }
   currentProfile = profile;
+
+  // The profile is saved either way; a failed sync just leaves the old name on some entries
+  try {
+    await syncMyRegistrations();
+  } catch (err) {
+    console.error(err);
+  }
   return true;
+}
+
+// Registrations copy the driver's name, so carry a change over to upcoming races.
+// Past races keep the name used at the time.
+async function syncMyRegistrations() {
+  const races = await getDocs(query(collection(db, "races"), where("date", ">=", localDateString())));
+  const regs = await Promise.all(
+    races.docs.map(r => getDoc(doc(db, "races", r.id, "registrations", currentUser.uid)))
+  );
+  const mine = regs.filter(r => r.exists());
+  if (mine.length === 0) return;
+  const batch = writeBatch(db);
+  mine.forEach(r => batch.update(r.ref, profileFields()));
+  await batch.commit();
 }
 
 /* ---------------- Navigation ---------------- */
