@@ -1223,7 +1223,6 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
     if (myEntry) {
       head.appendChild(buildRegisteredMenu(async () => {
-        if (!confirm(t("unregisterConfirm", cat.name))) return;
         await saveMyEntries(race, myReg, myEntries.filter(e => e.category !== cat.name));
         await loadRacesView();
       }));
