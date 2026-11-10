@@ -391,6 +391,8 @@ nav button.active::after { opacity: 1; }
 
 .site-footer a:hover { color: var(--accent); }
 
+.footer-sep { margin-inline: 8px; }
+
 /* ---- Auth / Name setup ---- */
 .auth-wrap {
   min-height: calc(100vh - 56px); /* leave room for the footer */
@@ -1196,6 +1198,8 @@ label input[type="checkbox"] {
 
 <footer class="site-footer">
   <span><span data-i18n="footerQuestions">Questions or feedback?</span> <a href="mailto:tracery.back.3t@icloud.com?subject=RC%20Grid%20support" data-i18n="contactSupport">Contact support</a></span>
+  <span class="footer-sep" aria-hidden="true">·</span>
+  <a href="https://github.com/yonicozac/RC-Grid" target="_blank" rel="noopener" data-i18n="openSource">Open source</a>
 </footer>
 
 <!-- Language picker for the sign-in screens (the app's top bar has its own) -->

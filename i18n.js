@@ -48,6 +48,7 @@ const strings = {
     upcomingRaces: "Upcoming Races",
     footerQuestions: "Questions or feedback?",
     contactSupport: "Contact support",
+    openSource: "Open source",
     email: "Email",
     save: "Save",
 
@@ -169,6 +170,7 @@ const strings = {
     upcomingRaces: "תחרויות קרובות",
     footerQuestions: "שאלות או משוב?",
     contactSupport: "צרו קשר",
+    openSource: "קוד פתוח",
     email: "אימייל",
     save: "שמירה",
 
@@ -290,6 +292,7 @@ const strings = {
     upcomingRaces: "Courses à venir",
     footerQuestions: "Des questions ou des remarques ?",
     contactSupport: "Contacter le support",
+    openSource: "Open source",
     email: "E-mail",
     save: "Enregistrer",
 
