@@ -709,10 +709,18 @@ function buildTrackCard(trackDoc) {
     const racePanel = document.createElement("div");
     racePanel.className = "race-panel hidden";
 
+    // After a race is created: close the form and confirm on the button for a moment
+    const onRaceCreated = () => {
+      racePanel.classList.add("hidden");
+      addRaceBtn.innerText = t("raceCreated");
+      setTimeout(() => { addRaceBtn.innerText = t("addRace"); }, 2500);
+    };
+
     addRaceBtn.onclick = async () => {
       if (racePanel.classList.contains("hidden")) {
+        addRaceBtn.innerText = t("addRace");
         racePanel.classList.remove("hidden");
-        await buildRacePanel(id, track.name, track.lat ?? null, track.lng ?? null, racePanel);
+        await buildRacePanel(id, track.name, track.lat ?? null, track.lng ?? null, racePanel, onRaceCreated);
       } else {
         racePanel.classList.add("hidden");
       }
@@ -823,7 +831,7 @@ document.getElementById("submitCreateTrackBtn").onclick = async () => {
 
 /* ---------------- Race Panel (owner) ---------------- */
 
-async function buildRacePanel(trackId, trackName, trackLat, trackLng, container) {
+async function buildRacePanel(trackId, trackName, trackLat, trackLng, container, onCreated) {
   container.innerHTML = "";
 
   // --- Create Race Form ---
@@ -927,8 +935,16 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
     };
     if (trackLat != null) { raceData.trackLat = trackLat; raceData.trackLng = trackLng; }
 
-    await addDoc(collection(db, "races"), raceData);
-    await buildRacePanel(trackId, trackName, trackLat, trackLng, container);
+    createRaceBtn.disabled = true;
+    try {
+      await addDoc(collection(db, "races"), raceData);
+    } catch (err) {
+      console.error(err);
+      alert(t("createRaceFailed"));
+      createRaceBtn.disabled = false;
+      return;
+    }
+    onCreated();
   };
   container.appendChild(createRaceBtn);
 
