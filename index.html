@@ -238,6 +238,7 @@ nav button.active::after { opacity: 1; }
   padding: 8px 10px;
   font-size: 0.85rem;
   border-radius: var(--radius-sm);
+  white-space: nowrap;  /* the menu grows to fit longer labels instead of wrapping */
 }
 .dropdown button:hover { background: var(--surface-2); }
 .dropdown button.danger { color: var(--danger); }

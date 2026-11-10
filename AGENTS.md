@@ -13,7 +13,7 @@ Lightweight RC race management app: racers follow tracks and register for races,
 
 - `index.html`: the whole UI layout plus all CSS in one `<style>` block (CSS variables on `:root`, accent `#e85d04`)
 - `app.js`: all app logic (auth, navigation, rendering, Firestore calls)
-- `i18n.js`: UI strings for English, Hebrew and French, language detection, the globe language picker, and date/number formatting
+- `i18n.js`: UI strings for English, French, German, Italian, Spanish and Hebrew, language detection, the globe language picker, and date/number formatting
 - `firestore.rules`: security rules, the real access control
 - `firebase.json`: points the Firebase CLI at the rules file
 - `event-app-plan.md`: original planning doc, **outdated**. Trust the code instead.
@@ -68,11 +68,11 @@ races/{raceId}/registrations/{uid}
 
 ## Localization
 
-- Languages: English (`en`), Hebrew (`he`, right-to-left), French (`fr`). The choice is stored on the device as `localStorage.rcgrid_lang` (kept on logout), never on the user's record.
-- Default when nothing is stored: Hebrew if any of the browser's languages is Hebrew, or the time zone is Israel's; otherwise English. French is only ever chosen by hand.
+- Languages, in menu order (the order of `LANGS`, Hebrew last): English (`en`), French (`fr`), German (`de`, Swiss Standard German: "ss" never "ß", «» quotes, `de-CH` dates, informal "du"), Italian (`it`), Spanish (`es`), Hebrew (`he`, right-to-left). The choice is stored on the device as `localStorage.rcgrid_lang` (kept on logout), never on the user's record.
+- Default when nothing is stored: Hebrew if any of the browser's languages is Hebrew, or the time zone is Israel's; otherwise English. The other languages are only ever chosen by hand.
 - The globe button (current language code inside) sits in the top bar, and in the top corner on the sign-in screens. Picking a language saves it and reloads the page.
 - `i18n.js` loads as its own `<script>` before `app.js`. It has no imports, so it translates the page and sets `<html lang dir>` while `app.js` is still waiting on Firebase.
-- Static markup is translated with `data-i18n` (text), `data-i18n-placeholder` and `data-i18n-title`. In `app.js`, use `t("key")`, or `t("key", ...args)` for entries that are functions (plurals, names). Add every new string to all three languages.
+- Static markup is translated with `data-i18n` (text), `data-i18n-placeholder` and `data-i18n-title`. In `app.js`, use `t("key")`, or `t("key", ...args)` for entries that are functions (plurals, names). Add every new string to all six languages.
 - Race dates show through `formatDate()` (e.g. "Sat 14 Nov 2026"). The stored value stays `YYYY-MM-DD`.
 - CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`) so Hebrew mirrors correctly. Don't add `left`/`right` or `margin-left`/`margin-right` for anything that should flip.
 - Heebo (Google Fonts) supplies Hebrew glyphs, since Inter and JetBrains Mono have none. Letter-spacing is turned off for Hebrew pages.
