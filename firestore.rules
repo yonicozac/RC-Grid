@@ -60,7 +60,9 @@ service cloud.firestore {
       // Only the track owner can create a race for their track
       allow create: if isAuthenticated() &&
         request.resource.data.createdBy == request.auth.uid &&
-        get(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.createdBy == request.auth.uid;
+        get(/databases/$(database)/documents/tracks/$(request.resource.data.trackId)).data.createdBy == request.auth.uid &&
+        // timing: "mylaps" (transponder required) or "none"; races without it are MyLaps
+        (!("timing" in request.resource.data) || request.resource.data.timing in ["mylaps", "none"]);
 
       // Only the race creator (track owner) can update, and only the race details:
       // the race can't be moved to another track or handed to another user

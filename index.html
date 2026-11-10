@@ -739,6 +739,12 @@ button:disabled { opacity: 0.55; cursor: default; }
 
 .race-panel > div:not(.cat-row) b { font-weight: 600; }
 
+.timing-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+
 /* ---- Category rows (race creation) ---- */
 .cat-row {
   display: flex;
@@ -769,7 +775,8 @@ label {
   cursor: pointer;
 }
 
-label input[type="checkbox"] {
+label input[type="checkbox"],
+label input[type="radio"] {
   width: 16px;
   height: 16px;
   accent-color: var(--accent);

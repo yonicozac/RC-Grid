@@ -842,6 +842,28 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   container.appendChild(dateInput);
   container.appendChild(document.createElement("br"));
 
+  // Timing: whether drivers must give a MyLaps transponder number
+  const timingLabel = document.createElement("p");
+  timingLabel.innerText = t("timingLabel");
+  container.appendChild(timingLabel);
+
+  const timingGroup = document.createElement("div");
+  timingGroup.className = "timing-options";
+  timingGroup.setAttribute("role", "radiogroup");
+  const radioName = `timing-${trackId}`;
+  [["mylaps", t("timingMylaps")], ["none", t("timingNone")]].forEach(([value, text]) => {
+    const label = document.createElement("label");
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = radioName;
+    radio.value = value;
+    radio.checked = value === "mylaps";
+    label.appendChild(radio);
+    label.appendChild(document.createTextNode(text));
+    timingGroup.appendChild(label);
+  });
+  container.appendChild(timingGroup);
+
   // Categories
   const catsLabel = document.createElement("p");
   catsLabel.innerText = t("categoriesLabel");
@@ -899,6 +921,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
       trackId,
       trackName,
       categories,
+      timing: timingGroup.querySelector("input:checked").value,
       createdBy: currentUser.uid,
       createdAt: serverTimestamp()
     };
@@ -923,7 +946,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
     races.forEach(r => {
       const item = document.createElement("div");
       item.innerHTML = `<b>${esc(r.name)}</b> — ${esc(formatDate(r.date))}
-        <span class="meta"> · ${r.categories.map(c => esc(c.name)).join(", ")}</span>`;
+        <span class="meta"> · ${r.categories.map(c => esc(c.name)).join(", ")}${usesTransponders(r) ? "" : ` · ${t("timingNone")}`}</span>`;
       container.appendChild(item);
     });
   }
@@ -1016,6 +1039,11 @@ async function renderRaces() {
 
 function localDateString(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Races created before the timing option existed all used MyLaps transponders
+function usesTransponders(race) {
+  return (race.timing ?? "mylaps") === "mylaps";
 }
 
 // Per-category entries; older registrations stored categories[] + one transponder
@@ -1173,12 +1201,16 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
   const canManage = race.createdBy === currentUser.uid || isAdmin;
 
   const myEntries = regEntries(myReg);
+  const withTransponders = usesTransponders(race);
 
-  // Group entries by category, keeping the race's category order
+  // Group entries by category, keeping the race's category order. Races without timing
+  // show no transponders (in the list or the CSV), even if old entries carry one.
   const byCategory = new Map(race.categories.map(c => [c.name, []]));
   regs.forEach(r => regEntries(r).forEach(e => {
     if (!byCategory.has(e.category)) byCategory.set(e.category, []);
-    byCategory.get(e.category).push({ uid: r.uid, name: displayName(r), transponder: e.transponder, reg: r });
+    byCategory.get(e.category).push({
+      uid: r.uid, name: displayName(r), transponder: withTransponders ? e.transponder : null, reg: r
+    });
   }));
 
   div.innerHTML = `
@@ -1226,6 +1258,17 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
         await saveMyEntries(race, myReg, myEntries.filter(e => e.category !== cat.name));
         await loadRacesView();
       }));
+    } else if (!withTransponders) {
+      // No timing: registering is a single click
+      const actionBtn = document.createElement("button");
+      actionBtn.className = "btn-primary btn-sm";
+      actionBtn.innerText = t("register");
+      actionBtn.onclick = async () => {
+        actionBtn.disabled = true;
+        await saveMyEntries(race, myReg, [...myEntries, { category: cat.name }]);
+        await loadRacesView();
+      };
+      head.appendChild(actionBtn);
     } else {
       const actionBtn = document.createElement("button");
       actionBtn.className = "btn-primary btn-sm";
@@ -1240,6 +1283,8 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
       transponderInput.type = "text";
       transponderInput.inputMode = "numeric";
       transponderInput.placeholder = t("transponderPlaceholder");
+      transponderInput.required = true;
+      transponderInput.oninput = () => transponderInput.setCustomValidity("");
       transponderInput.value = currentUserTransponder;
 
       const confirmBtn = document.createElement("button");
@@ -1268,10 +1313,16 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
       const submit = async () => {
         const transponder = transponderInput.value.trim();
+        if (!transponder) {
+          transponderInput.setCustomValidity(t("transponderRequired"));
+          transponderInput.reportValidity();
+          transponderInput.focus();
+          return;
+        }
         confirmBtn.disabled = true;
-        await saveMyEntries(race, myReg, [...myEntries, { category: cat.name, transponder: transponder || null }]);
+        await saveMyEntries(race, myReg, [...myEntries, { category: cat.name, transponder }]);
         // Remember it to prefill the next registration
-        if (transponder && transponder !== currentUserTransponder) {
+        if (transponder !== currentUserTransponder) {
           await setDoc(doc(db, "users", currentUser.uid), { transponder }, { merge: true });
           currentUserTransponder = transponder;
         }
