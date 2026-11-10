@@ -899,7 +899,7 @@ async function buildRacePanel(trackId, trackName, trackLat, trackLng, container)
   container.appendChild(document.createElement("br"));
 
   const createRaceBtn = document.createElement("button");
-  createRaceBtn.className = "btn-primary btn-sm";
+  createRaceBtn.className = "btn-primary btn-sm create-race-btn";
   createRaceBtn.innerText = t("createRace");
   createRaceBtn.onclick = async () => {
     const name = nameInput.value.trim();
