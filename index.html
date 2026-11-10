@@ -965,21 +965,38 @@ label input[type="checkbox"] {
   color: var(--text-muted);
 }
 
+/* Name, then the transponder and the × in columns at the end of the row */
+.driver-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.driver-name {
+  flex: 1;
+  min-width: 0;
+}
+
 .drivers-group .transponder {
+  flex-shrink: 0;
   font-family: var(--mono);
   font-size: 0.72rem;
   color: var(--text-muted);
-  margin-inline-start: 6px;
 }
 
 .remove-driver-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1;
-  padding: 0 4px;
-  margin-inline-start: 4px;
+  padding: 0;
   border-radius: 4px;
   opacity: 0.6;
 }

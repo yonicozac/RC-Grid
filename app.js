@@ -1309,10 +1309,10 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
 
       drivers.forEach(d => {
         const li = document.createElement("li");
-        li.innerHTML = `
-          ${esc(d.name || t("unnamedDriver"))}${d.uid === currentUser.uid ? ` <span class="you-tag">${t("you")}</span>` : ""}
+        li.innerHTML = `<div class="driver-row">
+          <span class="driver-name"><bdi>${esc(d.name || t("unnamedDriver"))}</bdi>${d.uid === currentUser.uid ? ` <span class="you-tag">${t("you")}</span>` : ""}</span>
           ${d.transponder ? `<span class="transponder" dir="ltr">#${esc(d.transponder)}</span>` : ""}
-        `;
+        </div>`;
 
         if (canManage) {
           const removeBtn = document.createElement("button");
@@ -1332,7 +1332,7 @@ function buildRaceCard(race, regs, myReg, isPast = false) {
             }
             await loadRacesView();
           };
-          li.appendChild(removeBtn);
+          li.firstElementChild.appendChild(removeBtn);
         }
 
         ol.appendChild(li);
