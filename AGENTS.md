@@ -16,6 +16,7 @@ Lightweight RC race management app: racers follow tracks and register for races,
 - `i18n.js`: UI strings for English, French, German, Italian, Spanish and Hebrew, language detection, the globe language picker, and date/number formatting
 - `firestore.rules`: security rules, the real access control
 - `firebase.json`: points the Firebase CLI at the rules file
+- `README.md`: public overview for GitHub (features, how it's built, running your own copy). Keep it in step with user-facing changes.
 - `event-app-plan.md`: original planning doc, **outdated**. Trust the code instead.
 
 ## Roles
