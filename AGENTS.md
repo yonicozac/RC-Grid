@@ -95,4 +95,5 @@ races/{raceId}/registrations/{uid}
 - Startup reads (profile, admin check, follows) run in parallel; views await `startupDataReady()` and show "Loading…", or an error with Retry. Non-admins can't read `admins/`, so a failed admin read means "not admin".
 
 - `loadRacesView` uses a Firestore `where("trackId", "in", ...)` query, which is capped at 30 values. That breaks if a user follows more than 30 tracks.
+- Driver-list row numbers use a CSS counter (`.driver-row::before`) instead of the `<ol>` marker, a workaround for a Safari bug that misplaces `::marker` beside flex content on RTL pages. The comment in `index.html` says how to revert it once Safari is fixed.
 - Magic-link sign-in redirects to production, so testing locally needs the auth URL changed or a sign-in on the live site.

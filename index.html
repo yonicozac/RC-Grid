@@ -963,23 +963,36 @@ label input[type="radio"] {
   margin-bottom: 6px;
 }
 
+/* Row numbers come from a CSS counter, not the list marker: Safari misplaces
+   ::marker next to flex content on right-to-left pages (or hides it on phones).
+   WORKAROUND (Nov 2026): once Safari fixes this, it can be reverted to native numbering:
+   drop list-style/counter-reset/counter-increment and .driver-row::before, and restore
+   `.drivers-group ol { padding-inline-start: 22px }` plus a mono, muted li::marker.
+   Check in Safari on a Hebrew page (desktop and phone width) before reverting. */
 .drivers-group ol {
-  padding-inline-start: 22px;
+  list-style: none;
+  padding: 0;
+  counter-reset: driver;
   font-size: 0.85rem;
 }
 
-.drivers-group li { padding: 2px 0; }
-.drivers-group li::marker {
+.drivers-group li { padding: 2px 0; counter-increment: driver; }
+
+/* Number, name, then the transponder and the × in columns at the end of the row */
+.driver-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.driver-row::before {
+  content: counter(driver) ".";
+  flex-shrink: 0;
+  min-width: 2.2em;
   font-family: var(--mono);
   font-size: 0.72rem;
   color: var(--text-muted);
-}
-
-/* Name, then the transponder and the × in columns at the end of the row */
-.driver-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  text-align: end;
 }
 
 .driver-name {
